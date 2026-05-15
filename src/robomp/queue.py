@@ -53,6 +53,14 @@ class WorkerPool:
         # them on next start; the agent then resumes via `--continue`).
         self._inflight_tasks: dict[asyncio.Task[None], str] = {}
         self._shutting_down: bool = False
+        # Deliveries whose `_run_event` we deliberately interrupted via
+        # `stop()` (either by firing the registered cancel hook or by
+        # cancelling the asyncio task itself). The exception path uses
+        # this — NOT `_shutting_down` — to decide whether to suppress
+        # `mark_event(..., 'failed')`. Without this distinction, an
+        # unrelated dispatch failure during the drain window would be
+        # silently masked and requeued as if nothing went wrong.
+        self._shutdown_cancelled: set[str] = set()
 
     def wake(self) -> None:
         """Signal that new work is available."""
@@ -96,22 +104,34 @@ class WorkerPool:
         _, still_running = await asyncio.wait(pending, timeout=drain_timeout)
         if not still_running:
             return
-        # 3. Time's up — fire each cancel hook to kill omp; tasks will hit
-        #    the shutting_down branch in _run_event and exit without
-        #    marking the row failed.
-        log.warning("shutdown timeout; killing omp subprocesses", extra={"count": len(still_running)})
+        # 3. Time's up — for every still-running task: fire its cancel hook
+        #    if one was registered (kills the omp subprocess); otherwise
+        #    cancel the asyncio task itself so a worker stuck pre-hook
+        #    (e.g. waiting on the semaphore or inside RpcClient.__enter__)
+        #    cannot proceed to spawn a fresh subprocess after stop()
+        #    returns. Either way we record the delivery id in
+        #    `_shutdown_cancelled` so `_run_event`'s exception path
+        #    suppresses `mark_event(..., 'failed')` for that row only.
+        log.warning("shutdown timeout; interrupting in-flight tasks", extra={"count": len(still_running)})
         for task in still_running:
             delivery_id = self._inflight_tasks.get(task)
             if delivery_id is None:
+                # Task was already finalizing; nothing left to interrupt.
+                task.cancel()
                 continue
+            self._shutdown_cancelled.add(delivery_id)
             hook = self._cancel_hooks.pop(delivery_id, None)
-            if hook is None:
+            if hook is not None:
+                try:
+                    await asyncio.to_thread(hook)
+                except Exception:
+                    log.exception("shutdown hook raised", extra={"delivery": delivery_id})
                 continue
-            try:
-                await asyncio.to_thread(hook)
-            except Exception:
-                log.exception("shutdown hook raised", extra={"delivery": delivery_id})
-        # 4. Brief wait for the exception path to settle.
+            # No hook armed yet — the worker hasn't reached the omp spawn
+            # point. Cancel the asyncio task directly so its body cannot
+            # run past stop().
+            task.cancel()
+        # 4. Brief wait for the exception path / cancellation to settle.
         with suppress(TimeoutError):
             await asyncio.wait(still_running, timeout=kill_timeout)
 
@@ -207,12 +227,15 @@ class WorkerPool:
                 else:
                     self.db.mark_event(row.delivery_id, "done")
             except Exception as exc:
-                if self._shutting_down:
-                    # Phase B: leave the row in `running` so
-                    # `reset_stuck_running()` flips it back to `queued` on
-                    # the next start and the resumed omp session picks up
-                    # via `--continue`. Marking failed here would strand
-                    # work that we know is recoverable.
+                if row.delivery_id in self._shutdown_cancelled:
+                    # `stop()` deliberately interrupted this delivery —
+                    # leave the row in `running` so `reset_stuck_running()`
+                    # flips it back to `queued` on the next start and the
+                    # resumed omp session picks up via `--continue`.
+                    # Other exceptions during the drain window (which
+                    # would also see `_shutting_down=True`) MUST still
+                    # mark the row failed; otherwise a genuine bug gets
+                    # silently requeued.
                     log.info(
                         "event interrupted by shutdown",
                         extra={"delivery": row.delivery_id, "key": row.issue_key},
@@ -226,6 +249,7 @@ class WorkerPool:
                     self.db.mark_event(row.delivery_id, "failed", error=f"{exc}\n{tb}")
             finally:
                 self._cancelled.discard(row.delivery_id)
+                self._shutdown_cancelled.discard(row.delivery_id)
                 self._cancel_hooks.pop(row.delivery_id, None)
                 await self._release(row)
                 clear_current_event(token)

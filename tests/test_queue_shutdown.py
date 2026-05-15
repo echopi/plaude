@@ -116,9 +116,10 @@ async def test_stop_fires_kill_hook_when_drain_exceeds_timeout(settings: Setting
 async def test_run_event_skips_mark_event_when_shutting_down(
     settings: Settings, db: Database, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """During shutdown, a dispatch exception MUST leave the row untouched."""
+    """During shutdown, a dispatch exception on a deliberately-cancelled delivery leaves the row untouched."""
     pool = _make_pool(settings, db)
     pool._shutting_down = True  # noqa: SLF001
+    pool._shutdown_cancelled.add("d-shutdown")  # noqa: SLF001
 
     db.record_event(
         delivery_id="d-shutdown",
@@ -139,3 +140,82 @@ async def test_run_event_skips_mark_event_when_shutting_down(
     assert stored is not None
     assert stored.state == "running"
     assert stored.last_error is None
+
+
+@pytest.mark.asyncio
+async def test_stop_cancels_hookless_inflight_task(settings: Settings, db: Database) -> None:
+    """A task claimed but stuck pre-hook MUST be cancelled by stop(), not allowed to spawn omp.
+
+    Reproduces the P1 finding: pre-fix, stop()'s kill phase iterated cancel
+    hooks only, so an in-flight task without a hook (still waiting on the
+    semaphore or inside RpcClient.__enter__) was left running and could
+    proceed to spawn a fresh subprocess after stop() returned.
+    """
+    pool = _make_pool(settings, db)
+
+    reached_spawn = False
+    pre_hook_started = asyncio.Event()
+
+    async def stuck_pre_hook() -> None:
+        nonlocal reached_spawn
+        pre_hook_started.set()
+        # Simulate waiting on a slow resource (semaphore / RpcClient.__enter__);
+        # we never get a chance to register a cancel hook.
+        try:
+            await asyncio.sleep(5.0)
+        except asyncio.CancelledError:
+            raise
+        # Pre-fix: this line was reachable after stop() returned.
+        reached_spawn = True
+
+    task = asyncio.create_task(stuck_pre_hook())
+    pool._inflight_tasks[task] = "d-hookless"  # noqa: SLF001
+    await asyncio.wait_for(pre_hook_started.wait(), timeout=1.0)
+
+    await pool.stop(drain_timeout=0.05, kill_timeout=0.2)
+
+    # Give the event loop a tick for cancellation to settle, then assert.
+    await asyncio.sleep(0)
+    assert task.done(), "stop() must terminate hookless in-flight tasks"
+    assert task.cancelled(), "hookless task must be cancelled, not left running"
+    assert reached_spawn is False, "task body must not progress past stop()"
+    assert "d-hookless" in pool._shutdown_cancelled  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_run_event_marks_failed_for_unrelated_failure_during_drain(
+    settings: Settings, db: Database, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A dispatch that fails for its own reasons during the drain window MUST still mark failed.
+
+    Reproduces the P2 finding: pre-fix, `_shutting_down=True` alone gated
+    the suppression branch, so any exception raised during the drain
+    window was masked and the row was silently requeued on the next
+    start(). After the fix, only deliveries in `_shutdown_cancelled`
+    (the ones stop() actually interrupted) get the suppression.
+    """
+    pool = _make_pool(settings, db)
+    pool._shutting_down = True  # noqa: SLF001
+    # Crucially: this delivery is NOT in `_shutdown_cancelled` — stop()
+    # never targeted it. Its failure is its own.
+
+    db.record_event(
+        delivery_id="d-real-fail",
+        event_type="issues",
+        repo="octo/widget",
+        issue_key="octo/widget#1",
+        payload={"action": "opened"},
+        state="running",
+    )
+
+    async def fake_dispatch(self: WorkerPool, r: EventRow) -> None:
+        raise RuntimeError("genuine bug, not shutdown")
+
+    monkeypatch.setattr(WorkerPool, "_dispatch", fake_dispatch)
+    await pool._run_event(_row("d-real-fail"))  # noqa: SLF001
+
+    stored = db.get_event("d-real-fail")
+    assert stored is not None
+    assert stored.state == "failed", "non-shutdown failure during drain must mark failed"
+    assert stored.last_error is not None
+    assert "genuine bug, not shutdown" in stored.last_error
