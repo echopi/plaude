@@ -1094,9 +1094,21 @@ export class StatusLineComponent implements Component {
 		const leftSegments = useCustomSegments
 			? (this.#settings.leftSegments ?? presetDef.leftSegments)
 			: presetDef.leftSegments;
-		const rightSegments = useCustomSegments
+		let rightSegments = useCustomSegments
 			? (this.#settings.rightSegments ?? presetDef.rightSegments)
 			: presetDef.rightSegments;
+		if (useClaudeStatusLine()) {
+			const claudeSegments: StatusLineSegmentId[] = [];
+			if (!leftSegments.includes("session_name") && !rightSegments.includes("session_name")) {
+				claudeSegments.push("session_name");
+			}
+			if (!leftSegments.includes("usage") && !rightSegments.includes("usage")) {
+				claudeSegments.push("usage");
+			}
+			if (claudeSegments.length > 0) {
+				rightSegments = [...rightSegments, ...claudeSegments];
+			}
+		}
 
 		return {
 			...this.#settings,

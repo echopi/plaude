@@ -202,7 +202,10 @@ describe("StatusLineComponent effective settings cache", () => {
 			const lines = component.render(80).map(line => stripVTControlCharacters(line));
 
 			expect(lines[0]).toContain("Test Model");
+			expect(lines[0]).toContain("Cache Session");
 			expect(lines[1]).toBe("hook running");
+			expect(component.getEffectiveSettingsForTest().rightSegments).toContain("session_name");
+			expect(component.getEffectiveSettingsForTest().rightSegments).toContain("usage");
 		} finally {
 			if (previous === undefined) {
 				delete process.env.PLAUDE_STATUSLINE_STYLE;

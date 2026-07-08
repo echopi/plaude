@@ -1475,7 +1475,7 @@ export class InteractiveMode implements InteractiveModeContext {
 	#configureEditorStatusChrome(editor: CustomEditor): void {
 		if (useClaudeStatusLine()) {
 			editor.setBorderVisible(false);
-			editor.setPromptGutter(`${theme.fg("accent", ">")} `);
+			editor.setPromptGutter(`${theme.fg("accent", "❯")} `);
 			editor.setTopBorderProvider(undefined);
 			return;
 		}

@@ -80,6 +80,26 @@ describe("usage status-line segment", () => {
 		expect(content).toContain("5d 21h");
 	});
 
+	it("renders compact Claude-style usage when Claude statusline style is enabled", () => {
+		const previous = process.env.PLAUDE_STATUSLINE_STYLE;
+		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+		try {
+			const result = renderSegment("usage", {
+				usage: { fiveHour: { percent: 9, resetMinutes: 30 }, sevenDay: { percent: 80, resetHours: 141 } },
+			} as unknown as SegmentContext);
+			const content = stripVTControlCharacters(result.content);
+
+			expect(result.visible).toBe(true);
+			expect(content).toBe("5h:9%/7d:80%");
+		} finally {
+			if (previous === undefined) {
+				delete process.env.PLAUDE_STATUSLINE_STYLE;
+			} else {
+				process.env.PLAUDE_STATUSLINE_STYLE = previous;
+			}
+		}
+	});
+
 	it("renders tiered usage fetched from provider reports", async () => {
 		const now = Date.now();
 		const component = makeComponent([

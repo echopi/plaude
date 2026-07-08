@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
 import { TERMINAL } from "@oh-my-pi/pi-tui";
 import { formatDuration, formatNumber, getProjectDir, pathIsWithin, relativePathWithinRoot } from "@oh-my-pi/pi-utils";
+import { useClaudeStatusLine } from "../../../lite/render-policy";
 import { type ThemeColor, theme } from "../../../modes/theme/theme";
 import { shortenPath, TRUNCATE_LENGTHS, truncateToWidth } from "../../../tools/render-utils";
 import { getSessionAccentAnsi, getSessionAccentHex } from "../../../utils/session-color";
@@ -593,6 +594,21 @@ const usageSegment: StatusLineSegment = {
 		const u = ctx.usage;
 		if (!u || (!u.fiveHour && !u.sevenDay)) {
 			return { content: "", visible: false };
+		}
+		if (useClaudeStatusLine()) {
+			const usageParts: string[] = [];
+			if (u.fiveHour) {
+				const pct = u.fiveHour.percent;
+				usageParts.push(`5h:${theme.fg(pickUsageColor(pct), `${Math.round(pct)}%`)}`);
+			}
+			if (u.sevenDay) {
+				const pct = u.sevenDay.percent;
+				usageParts.push(`7d:${theme.fg(pickUsageColor(pct), `${Math.round(pct)}%`)}`);
+			}
+			const tier = u.tier ? truncateToWidth(sanitizeStatusText(u.tier), TRUNCATE_LENGTHS.SHORT) : "";
+			const usageText = usageParts.join("/");
+			const content = tier ? `${theme.fg("accent", tier)}${theme.sep.dot}${usageText}` : usageText;
+			return { content, visible: usageText.length > 0 };
 		}
 		const parts: string[] = [];
 		if (u.tier) {

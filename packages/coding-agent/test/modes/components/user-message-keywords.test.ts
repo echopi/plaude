@@ -5,7 +5,7 @@ import type { AgentMessage } from "@oh-my-pi/pi-agent-core";
 import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import { CustomEditor } from "@oh-my-pi/pi-coding-agent/modes/components/custom-editor";
 import { UserMessageComponent } from "@oh-my-pi/pi-coding-agent/modes/components/user-message";
-import { getEditorTheme, initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
+import { getEditorTheme, initTheme, theme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
 import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
 import { UiHelpers } from "@oh-my-pi/pi-coding-agent/modes/utils/ui-helpers";
 import { Container } from "@oh-my-pi/pi-tui";
@@ -54,6 +54,24 @@ describe("UserMessageComponent magic-keyword highlighting", () => {
 		expect(raw).toContain("\x1b]133;A\x07");
 		expect(raw).toContain("\x1b]133;B\x07");
 		expect(raw).not.toContain("\x1b]133;C\x07");
+	});
+
+	it("renders Claude-style sent messages without the filled user-message background", () => {
+		const previous = process.env.PLAUDE_STATUSLINE_STYLE;
+		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+		try {
+			const raw = render("hi");
+			const visible = Bun.stripANSI(raw);
+
+			expect(visible).toContain("❯ hi");
+			expect(raw).not.toContain(theme.getBgAnsi("userMessageBg"));
+		} finally {
+			if (previous === undefined) {
+				delete process.env.PLAUDE_STATUSLINE_STYLE;
+			} else {
+				process.env.PLAUDE_STATUSLINE_STYLE = previous;
+			}
+		}
 	});
 
 	it("bolds and underlines image references in the rendered message bubble", () => {
