@@ -70,8 +70,9 @@ export class UserMessageComponent extends Container {
 	}
 
 	#renderClaudeStyle(width: number): readonly string[] {
-		const contentWidth = Math.max(1, width);
+		const contentIndent = "  ";
+		const contentWidth = Math.max(1, width - contentIndent.length);
 		const lines = this.children[0]?.render(contentWidth) ?? [];
-		return lines.map(line => truncateToWidth(line, width));
+		return lines.map(line => truncateToWidth(`${contentIndent}${line}`, width));
 	}
 }
