@@ -1,4 +1,5 @@
-import { Container, Markdown } from "@oh-my-pi/pi-tui";
+import { Container, Markdown, truncateToWidth } from "@oh-my-pi/pi-tui";
+import { useClaudeStatusLine } from "../../lite/render-policy";
 import { getMarkdownTheme, theme } from "../../modes/theme/theme";
 import { imageReferenceHyperlink, renderPlaceholders } from "../image-references";
 import { highlightMagicKeywords } from "../magic-keywords";
@@ -20,9 +21,11 @@ export class UserMessageComponent extends Container {
 	// never mutates the container's cached array.
 	#zoneSource: readonly string[] | undefined;
 	#zoneLines: string[] | undefined;
+	#claudeStyle: boolean;
 
 	constructor(text: string, synthetic = false, imageLinks?: readonly (string | undefined)[]) {
 		super();
+		this.#claudeStyle = useClaudeStatusLine();
 		const bgColor = (value: string) => theme.bg("userMessageBg", value);
 		// Paint the magic keywords ("ultrathink"/"orchestrate"/"workflowz") inside the rendered
 		// bubble too — matching the live editor glow. The Markdown component routes code spans and
@@ -42,8 +45,8 @@ export class UserMessageComponent extends Container {
 						? imageReferenceHyperlink(label, index, imageLinks, imageLabel)
 						: theme.fg("accent", `\x1b[1m${label}\x1b[22m`),
 			});
-		const md = new Markdown(text, 1, 1, getMarkdownTheme(), {
-			bgColor,
+		const md = new Markdown(text, this.#claudeStyle ? 0 : 1, this.#claudeStyle ? 0 : 1, getMarkdownTheme(), {
+			bgColor: this.#claudeStyle ? undefined : bgColor,
 			color,
 		});
 		md.setIgnoreTight(true);
@@ -51,7 +54,7 @@ export class UserMessageComponent extends Container {
 	}
 
 	override render(width: number): readonly string[] {
-		const lines = super.render(width);
+		const lines = this.#claudeStyle ? this.#renderClaudeStyle(width) : super.render(width);
 		if (lines.length === 0) {
 			return lines;
 		}
@@ -64,5 +67,11 @@ export class UserMessageComponent extends Container {
 		this.#zoneSource = lines;
 		this.#zoneLines = wrapped;
 		return wrapped;
+	}
+
+	#renderClaudeStyle(width: number): readonly string[] {
+		const contentWidth = Math.max(1, width);
+		const lines = this.children[0]?.render(contentWidth) ?? [];
+		return lines.map(line => truncateToWidth(line, width));
 	}
 }
