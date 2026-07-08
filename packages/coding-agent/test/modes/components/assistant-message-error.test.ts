@@ -33,6 +33,26 @@ function erroredMessage(errorMessage: string): AssistantMessage {
 	};
 }
 
+function textMessage(text: string): AssistantMessage {
+	return {
+		role: "assistant",
+		content: [{ type: "text", text }],
+		api: "anthropic-messages",
+		provider: "anthropic",
+		model: "claude-sonnet-4-5",
+		usage: {
+			input: 0,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			totalTokens: 0,
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		},
+		stopReason: "stop",
+		timestamp: Date.now(),
+	};
+}
+
 function renderLines(message: AssistantMessage, hideThinkingBlock = false): string[] {
 	const component = new AssistantMessageComponent(message, hideThinkingBlock);
 	return Bun.stripANSI(component.render(RENDER_WIDTH).join("\n"))
@@ -102,6 +122,32 @@ describe("AssistantMessageComponent error rendering", () => {
 	it("renders a short single-line error unchanged", () => {
 		const lines = renderLines(erroredMessage("overloaded_error: Overloaded"));
 		expect(lines.some(line => line.includes("Error: overloaded_error: Overloaded"))).toBe(true);
+	});
+});
+
+describe("AssistantMessageComponent Claude-style transcript gutter", () => {
+	function withClaudeStyle<T>(fn: () => T): T {
+		const previous = process.env.PLAUDE_STATUSLINE_STYLE;
+		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+		try {
+			return fn();
+		} finally {
+			if (previous === undefined) {
+				delete process.env.PLAUDE_STATUSLINE_STYLE;
+			} else {
+				process.env.PLAUDE_STATUSLINE_STYLE = previous;
+			}
+		}
+	}
+
+	it("keeps assistant text away from the left terminal edge", () => {
+		const lines = withClaudeStyle(() => renderLines(textMessage("✓ edit -> ok")));
+		expect(lines.some(line => line.startsWith("  ✓ edit -> ok"))).toBe(true);
+	});
+
+	it("keeps assistant error text aligned with the transcript gutter", () => {
+		const lines = withClaudeStyle(() => renderLines(erroredMessage("unable to get local issuer certificate")));
+		expect(lines.some(line => line.startsWith("  Error: unable to get local issuer certificate"))).toBe(true);
 	});
 });
 
