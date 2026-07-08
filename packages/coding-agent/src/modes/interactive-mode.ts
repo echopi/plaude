@@ -1594,6 +1594,21 @@ export class InteractiveMode implements InteractiveModeContext {
 		this.editor.setMaxHeight(this.#computeEditorMaxHeight());
 	}
 
+	#configureEditorStatusChrome(editor: CustomEditor): void {
+		if (useClaudeStatusLine()) {
+			editor.setBorderVisible(false);
+			editor.setPromptGutter(`${theme.fg("accent", "❯")} `);
+			editor.setTopBorderProvider(undefined);
+			return;
+		}
+
+		editor.setBorderVisible(true);
+		editor.setPromptGutter(undefined);
+		// Lazy provider: the top border rebuild coalesces to at most one invocation
+		// per painted frame instead of firing on every session event (#4145).
+		editor.setTopBorderProvider(availableWidth => this.statusLine.getTopBorder(availableWidth));
+	}
+
 	#syncStatusLineSettings(): void {
 		this.statusLine.updateSettings({
 			preset: settings.get("statusLine.preset"),
