@@ -28,6 +28,7 @@ STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
 RECEIPT_ROOT="${PLAUDE_RECEIPT_ROOT:-$STATE_HOME/plaude/upstream-sync}"
 GIT_USER_NAME="${PLAUDE_GIT_USER_NAME:-}"
 GIT_USER_EMAIL="${PLAUDE_GIT_USER_EMAIL:-}"
+NOTIFY_COMMAND="${PLAUDE_NOTIFY_COMMAND:-}"
 
 need_cmd() {
 	if ! command -v "$1" >/dev/null 2>&1; then
@@ -82,6 +83,19 @@ write_receipt() {
 	echo "$receipt_dir"
 }
 
+notify() {
+	status="$1"
+	message="$2"
+	receipt_dir="${3:-}"
+	if [ -z "$NOTIFY_COMMAND" ]; then
+		return
+	fi
+	PLAUDE_NOTIFY_STATUS="$status" \
+		PLAUDE_NOTIFY_MESSAGE="$message" \
+		PLAUDE_NOTIFY_RECEIPT="$receipt_dir" \
+		sh -c "$NOTIFY_COMMAND" || echo "Notification failed for $status" >&2
+}
+
 run_once() {
 	ensure_repo
 	configure_git_identity
@@ -89,7 +103,9 @@ run_once() {
 
 	if [ -n "$(git status --porcelain)" ]; then
 		receipt_dir="$(write_receipt dirty)"
-		echo "Worktree is dirty; receipt: $receipt_dir" >&2
+		message="Worktree is dirty; receipt: $receipt_dir"
+		notify dirty "$message" "$receipt_dir"
+		echo "$message" >&2
 		return 2
 	fi
 
@@ -106,7 +122,9 @@ run_once() {
 	git merge --no-edit "$UPSTREAM_REMOTE/$BASE_BRANCH" || {
 		git merge --abort >/dev/null 2>&1 || true
 		receipt_dir="$(write_receipt conflict)"
-		echo "Upstream merge conflict for $upstream_sha; receipt: $receipt_dir" >&2
+		message="Upstream merge conflict for $upstream_sha; receipt: $receipt_dir"
+		notify conflict "$message" "$receipt_dir"
+		echo "$message" >&2
 		return 3
 	}
 
@@ -118,7 +136,9 @@ run_once() {
 	bun install
 	sh -c "$VERIFY_COMMAND" || {
 		receipt_dir="$(write_receipt verify-failed)"
-		echo "Verification failed for upstream $upstream_sha; receipt: $receipt_dir" >&2
+		message="Verification failed for upstream $upstream_sha; receipt: $receipt_dir"
+		notify verify-failed "$message" "$receipt_dir"
+		echo "$message" >&2
 		return 4
 	}
 
@@ -129,7 +149,9 @@ run_once() {
 
 	git push "$FORK_REMOTE" "$WORK_BRANCH"
 	receipt_dir="$(write_receipt ok)"
-	echo "Synced upstream $upstream_sha; receipt: $receipt_dir"
+	message="Synced upstream $upstream_sha; receipt: $receipt_dir"
+	notify ok "$message" "$receipt_dir"
+	echo "$message"
 }
 
 case "$MODE" in

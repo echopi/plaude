@@ -49,8 +49,12 @@ git -C "$REPO_DIR" pull --ff-only origin "$REF" 2>/dev/null || true
 echo "Installing dependencies"
 (cd "$REPO_DIR" && bun install)
 
-echo "Building native package"
-(cd "$REPO_DIR" && bun run build:native)
+if command -v cargo >/dev/null 2>&1; then
+	echo "Building native package"
+	(cd "$REPO_DIR" && bun run build:native)
+else
+	echo "Skipping native build because cargo is not on PATH; using bundled native assets."
+fi
 
 WRAPPER="$BIN_DIR/$CMD_NAME"
 cat >"$WRAPPER" <<EOF
