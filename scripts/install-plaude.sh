@@ -33,6 +33,20 @@ need_cmd() {
 need_cmd git
 need_cmd bun
 
+install_host_native_leaf() {
+	platform_tag="$(cd "$REPO_DIR" && bun -e 'console.log(`${process.platform}-${process.arch}`)')"
+	case "$platform_tag" in
+		darwin-arm64|darwin-x64|linux-arm64|linux-x64|win32-x64) ;;
+		*)
+			echo "No published pi-natives package for $platform_tag; native addon must be built locally." >&2
+			return 1
+			;;
+	esac
+	native_version="$(cd "$REPO_DIR" && bun -e 'const pkg = await Bun.file("packages/natives/package.json").json(); console.log(pkg.version)')"
+	echo "Installing native package @oh-my-pi/pi-natives-$platform_tag@$native_version"
+	(cd "$REPO_DIR" && bun add --no-save --minimum-release-age=0 "@oh-my-pi/pi-natives-$platform_tag@$native_version")
+}
+
 mkdir -p "$HOME_DIR" "$BIN_DIR"
 
 if [ -d "$REPO_DIR/.git" ]; then
@@ -53,7 +67,8 @@ if command -v cargo >/dev/null 2>&1; then
 	echo "Building native package"
 	(cd "$REPO_DIR" && bun run build:native)
 else
-	echo "Skipping native build because cargo is not on PATH; using bundled native assets."
+	echo "Cargo is not on PATH; installing published native package instead."
+	install_host_native_leaf
 fi
 
 WRAPPER="$BIN_DIR/$CMD_NAME"
