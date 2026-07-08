@@ -4,6 +4,7 @@ import type { RenderResultOptions } from "../extensibility/custom-tools/types";
 import type { Theme } from "../modes/theme/theme";
 import type { AgentProgress, SingleResult, TaskParams, TaskToolDetails } from "../task/types";
 import { formatStatusIcon, previewLine, replaceTabs, truncateToWidth } from "../tools/render-utils";
+import { useClaudeStatusLine } from "./render-policy";
 
 type TaskResult = {
 	content: Array<{ type: string; text?: string }>;
@@ -39,7 +40,7 @@ function currentTool(progress: AgentProgress): string | undefined {
 }
 
 function renderLine(line: string, theme: Theme, color: "dim" | "text" | "error" = "text"): Component {
-	return new Text(theme.fg(color, truncateToWidth(line, 120)), 0, 0);
+	return new Text(theme.fg(color, truncateToWidth(line, 120)), useClaudeStatusLine() ? 2 : 0, 0);
 }
 
 function runningLine(progress: AgentProgress, options: RenderResultOptions, theme: Theme): string {

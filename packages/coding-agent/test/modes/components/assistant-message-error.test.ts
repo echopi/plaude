@@ -149,6 +149,30 @@ describe("AssistantMessageComponent Claude-style transcript gutter", () => {
 		const lines = withClaudeStyle(() => renderLines(erroredMessage("unable to get local issuer certificate")));
 		expect(lines.some(line => line.startsWith("  Error: unable to get local issuer certificate"))).toBe(true);
 	});
+
+	it("renders assistant markdown tables without heavy grid borders", () => {
+		const lines = withClaudeStyle(() =>
+			renderLines(
+				textMessage(
+					[
+						"最终状态:",
+						"",
+						"| 产品 | 状态 |",
+						"| --- | --- |",
+						"| Aone #84082937 | ✅ 已建 |",
+						"| Gerrit CL 189267 | ✅ 干净 |",
+					].join("\n"),
+				),
+			),
+		);
+		const rendered = lines.join("\n");
+		expect(rendered).toContain("产品");
+		expect(rendered).toContain("Aone");
+		expect(rendered).toContain("84082937");
+		expect(rendered).toContain("✅ 已建");
+		expect(rendered).not.toContain("+---");
+		expect(rendered).not.toContain("| 产品");
+	});
 });
 
 describe("AssistantMessageComponent hidden thinking rendering", () => {

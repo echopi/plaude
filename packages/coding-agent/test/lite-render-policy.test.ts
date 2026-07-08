@@ -32,6 +32,7 @@ function customTool(): AgentTool {
 
 describe("lite render policy", () => {
 	const originalLiteRenderTest = process.env.OMP_LITE_RENDER_TEST;
+	const originalPlaudeStatuslineStyle = process.env.PLAUDE_STATUSLINE_STYLE;
 
 	beforeEach(async () => {
 		process.env.OMP_LITE_RENDER_TEST = "1";
@@ -45,6 +46,11 @@ describe("lite render policy", () => {
 			delete process.env.OMP_LITE_RENDER_TEST;
 		} else {
 			process.env.OMP_LITE_RENDER_TEST = originalLiteRenderTest;
+		}
+		if (originalPlaudeStatuslineStyle === undefined) {
+			delete process.env.PLAUDE_STATUSLINE_STYLE;
+		} else {
+			process.env.PLAUDE_STATUSLINE_STYLE = originalPlaudeStatuslineStyle;
 		}
 	});
 
@@ -63,6 +69,63 @@ describe("lite render policy", () => {
 		const rendered = strip(component);
 		expect(rendered).toContain("bash(printf hello) -> exit 0: warning: check me");
 		expect(rendered).not.toContain("Wall:");
+	});
+
+	it("keeps Claude-style collapsed tool summaries away from the left terminal edge", () => {
+		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+		const component = new ToolExecutionComponent(
+			"bash",
+			{ command: "printf hello" },
+			{},
+			undefined,
+			makeUi(),
+			process.cwd(),
+		);
+
+		component.updateResult(result(""), false);
+
+		const rendered = strip(component);
+		expect(
+			rendered.split("\n").some(line => line.startsWith("  ") && line.includes("bash(printf hello) -> ok")),
+		).toBe(true);
+	});
+
+	it("keeps Claude-style collapsed task summaries aligned with tool summaries", () => {
+		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+		const component = new ToolExecutionComponent("task", { agent: "codex" }, {}, undefined, makeUi(), process.cwd());
+
+		component.updateResult(result("done"), false);
+
+		const rendered = strip(component);
+		expect(rendered.split("\n").some(line => line.startsWith("  ") && line.includes("codex - completed: done"))).toBe(
+			true,
+		);
+	});
+
+	it("keeps Claude-style compact edit diff rows aligned with the tool summary", () => {
+		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+		const component = new ToolExecutionComponent(
+			"edit",
+			{ file_path: "src/app.ts" },
+			{},
+			undefined,
+			makeUi(),
+			process.cwd(),
+		);
+
+		component.updateResult(
+			result("Edited src/app.ts", {
+				path: "src/app.ts",
+				diff: ["@@ -1,2 +1,2 @@", "-const oldValue = true;", "+const newValue = true;"].join("\n"),
+			}),
+			false,
+		);
+
+		const lines = strip(component).split("\n");
+		expect(lines.some(line => line.startsWith("  ") && line.includes("edit(file_path:src/app.ts) -> ok"))).toBe(true);
+		expect(lines.some(line => line.startsWith("  @@ -1,2 +1,2 @@"))).toBe(true);
+		expect(lines.some(line => line.startsWith("  -const oldValue = true;"))).toBe(true);
+		expect(lines.some(line => line.startsWith("  +const newValue = true;"))).toBe(true);
 	});
 
 	it("uses the original renderer when tool output is expanded", () => {

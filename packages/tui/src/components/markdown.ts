@@ -649,6 +649,11 @@ export interface DefaultTextStyle {
 	underline?: boolean;
 }
 
+export interface MarkdownRenderOptions {
+	/** Render markdown tables as lightweight aligned text instead of boxed grid tables. */
+	plainTables?: boolean;
+}
+
 /**
  * Theme functions for markdown elements.
  * Each function takes text and returns styled text with ANSI codes.
@@ -928,6 +933,7 @@ interface RenderSignature {
 	imageProtocol: string;
 	hyperlinks: boolean;
 	textSizing: boolean;
+	plainTables: boolean;
 	bgColorProbe: string;
 	headingProbe: string;
 }
@@ -944,6 +950,7 @@ export class Markdown implements Component {
 	#paddingY: number; // Top/bottom padding
 	#defaultTextStyle?: DefaultTextStyle;
 	#theme: MarkdownTheme;
+	#renderOptions: MarkdownRenderOptions;
 	#defaultStylePrefix?: string;
 	/** Number of spaces used to indent code block content. */
 	#codeBlockIndent: number;
@@ -997,12 +1004,14 @@ export class Markdown implements Component {
 		theme: MarkdownTheme,
 		defaultTextStyle?: DefaultTextStyle,
 		codeBlockIndent: number = 2,
+		renderOptions: MarkdownRenderOptions = {},
 	) {
 		this.#text = text;
 		this.#paddingX = paddingX;
 		this.#paddingY = paddingY;
 		this.#theme = theme;
 		this.#defaultTextStyle = defaultTextStyle;
+		this.#renderOptions = renderOptions;
 		this.#codeBlockIndent = Math.max(0, Math.floor(codeBlockIndent));
 	}
 
@@ -1228,13 +1237,14 @@ export class Markdown implements Component {
 			imageProtocol: TERMINAL.imageProtocol ?? "",
 			hyperlinks: TERMINAL.hyperlinks,
 			textSizing: TERMINAL.textSizing,
+			plainTables: this.#renderOptions.plainTables === true,
 			bgColorProbe,
 			headingProbe,
 		};
 	}
 
 	#renderCacheKey(normalizedText: string, signature: RenderSignature): string {
-		return `${normalizedText}\x00${signature.width}\x00${signature.paddingX}\x00${signature.paddingY}\x00${signature.codeBlockIndent}\x00${signature.themeId}\x00${signature.defaultTextStyleId}\x00${signature.imageProtocol}\x00${signature.hyperlinks ? 1 : 0}\x00${signature.textSizing ? 1 : 0}\x00${signature.bgColorProbe}\x00${signature.headingProbe}`;
+		return `${normalizedText}\x00${signature.width}\x00${signature.paddingX}\x00${signature.paddingY}\x00${signature.codeBlockIndent}\x00${signature.themeId}\x00${signature.defaultTextStyleId}\x00${signature.imageProtocol}\x00${signature.hyperlinks ? 1 : 0}\x00${signature.textSizing ? 1 : 0}\x00${signature.plainTables ? 1 : 0}\x00${signature.bgColorProbe}\x00${signature.headingProbe}`;
 	}
 
 	#renderStreamingContentLines(
@@ -1591,7 +1601,10 @@ export class Markdown implements Component {
 			}
 
 			case "table": {
-				const tableLines = this.#renderTable(token as TableToken, width, nextTokenType, styleContext);
+				const tableLines =
+					this.#renderOptions.plainTables === true
+						? this.#renderPlainTable(token as TableToken, width, nextTokenType, styleContext)
+						: this.#renderTable(token as TableToken, width, nextTokenType, styleContext);
 				lines.push(...tableLines);
 				break;
 			}
@@ -2009,6 +2022,133 @@ export class Markdown implements Component {
 	#wrapCellText(text: string, maxWidth: number): string[] {
 		const cellWidth = Math.max(1, maxWidth);
 		return splitTerminalLines(text).flatMap(line => wrapTextWithAnsi(line, cellWidth));
+	}
+
+	#tableColumnWidths(cells: string[][], availableForCells: number): number[] {
+		const numCols = cells[0]?.length ?? 0;
+		if (numCols === 0) return [];
+
+		const maxUnbrokenWordWidth = 30;
+		const naturalWidths = new Array(numCols).fill(0);
+		const minWordWidths = new Array(numCols).fill(1);
+		for (const row of cells) {
+			for (let i = 0; i < numCols; i++) {
+				const text = row[i] ?? "";
+				const lineWidths = this.#terminalLineWidths(text);
+				naturalWidths[i] = Math.max(naturalWidths[i], ...lineWidths, 0);
+				minWordWidths[i] = Math.max(minWordWidths[i], this.#getLongestWordWidth(text, maxUnbrokenWordWidth));
+			}
+		}
+
+		let minColumnWidths = minWordWidths;
+		let minCellsWidth = minColumnWidths.reduce((a, b) => a + b, 0);
+
+		if (minCellsWidth > availableForCells) {
+			minColumnWidths = new Array(numCols).fill(1);
+			const remaining = availableForCells - numCols;
+
+			if (remaining > 0) {
+				const totalWeight = minWordWidths.reduce((total, width) => total + Math.max(0, width - 1), 0);
+				const growth = minWordWidths.map(width => {
+					const weight = Math.max(0, width - 1);
+					return totalWeight > 0 ? Math.floor((weight / totalWeight) * remaining) : 0;
+				});
+
+				for (let i = 0; i < numCols; i++) {
+					minColumnWidths[i] += growth[i] ?? 0;
+				}
+
+				const allocated = growth.reduce((total, width) => total + width, 0);
+				let leftover = remaining - allocated;
+				for (let i = 0; leftover > 0 && i < numCols; i++) {
+					minColumnWidths[i]++;
+					leftover--;
+				}
+			}
+
+			minCellsWidth = minColumnWidths.reduce((a, b) => a + b, 0);
+		}
+
+		const totalNaturalWidth = naturalWidths.reduce((a, b) => a + b, 0);
+		if (totalNaturalWidth <= availableForCells) {
+			return naturalWidths.map((width, index) => Math.max(width, minColumnWidths[index]));
+		}
+
+		const totalGrowPotential = naturalWidths.reduce((total, width, index) => {
+			return total + Math.max(0, width - minColumnWidths[index]);
+		}, 0);
+		const extraWidth = Math.max(0, availableForCells - minCellsWidth);
+		const columnWidths = minColumnWidths.map((minWidth, index) => {
+			const naturalWidth = naturalWidths[index];
+			const minWidthDelta = Math.max(0, naturalWidth - minWidth);
+			let grow = 0;
+			if (totalGrowPotential > 0) {
+				grow = Math.floor((minWidthDelta / totalGrowPotential) * extraWidth);
+			}
+			return minWidth + grow;
+		});
+
+		const allocated = columnWidths.reduce((a, b) => a + b, 0);
+		let remaining = availableForCells - allocated;
+		while (remaining > 0) {
+			let grew = false;
+			for (let i = 0; i < numCols && remaining > 0; i++) {
+				if (columnWidths[i] < naturalWidths[i]) {
+					columnWidths[i]++;
+					remaining--;
+					grew = true;
+				}
+			}
+			if (!grew) break;
+		}
+		return columnWidths;
+	}
+
+	#renderPlainTable(
+		token: TableToken,
+		availableWidth: number,
+		nextTokenType?: string,
+		styleContext?: InlineStyleContext,
+	): string[] {
+		const numCols = token.header.length;
+		if (numCols === 0) return [];
+
+		const separatorWidth = Math.max(0, numCols - 1) * 2;
+		const availableForCells = availableWidth - separatorWidth;
+		if (availableForCells < numCols) {
+			const fallbackLines = token.raw ? wrapTextWithAnsi(token.raw, availableWidth) : [];
+			if (nextTokenType && nextTokenType !== "space") fallbackLines.push("");
+			return fallbackLines;
+		}
+
+		const rows = [
+			token.header.map(cell => this.#renderInlineTokens(cell.tokens || [], styleContext)),
+			...token.rows.map(row => row.map(cell => this.#renderInlineTokens(cell.tokens || [], styleContext))),
+		];
+		const columnWidths = this.#tableColumnWidths(rows, availableForCells);
+
+		const renderRow = (row: string[], style: (text: string) => string): string[] => {
+			const cellLines = row.map((cell, index) => this.#wrapCellText(cell, columnWidths[index] ?? 1));
+			const lineCount = Math.max(...cellLines.map(cell => cell.length), 1);
+			const rendered: string[] = [];
+			for (let lineIdx = 0; lineIdx < lineCount; lineIdx++) {
+				const parts = cellLines.map((lines, colIdx) => {
+					const text = lines[lineIdx] || "";
+					if (colIdx === cellLines.length - 1) return style(text);
+					return style(text + padding(Math.max(0, (columnWidths[colIdx] ?? 1) - visibleWidth(text))));
+				});
+				rendered.push(parts.join("  ").trimEnd());
+			}
+			return rendered;
+		};
+
+		const lines: string[] = [];
+		lines.push(...renderRow(rows[0] ?? [], text => this.#theme.bold(text)));
+		for (const row of rows.slice(1)) {
+			lines.push(...renderRow(row, text => text));
+		}
+		if (nextTokenType && nextTokenType !== "space") lines.push("");
+		return lines;
 	}
 
 	/**

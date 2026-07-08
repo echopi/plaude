@@ -1,6 +1,7 @@
 import type { Component } from "@oh-my-pi/pi-tui";
 import { Box, Container } from "@oh-my-pi/pi-tui";
 import type { HookMessageRenderer } from "../../extensibility/hooks/types";
+import { useClaudeStatusLine } from "../../lite/render-policy";
 import { theme } from "../../modes/theme/theme";
 import type { HookMessage } from "../../session/messages";
 import { renderFramedMessage } from "./message-frame";
@@ -23,8 +24,12 @@ export class HookMessageComponent extends Container {
 	) {
 		super();
 
-		// Create box with purple background (used for default rendering)
-		this.#box = new Box(1, 1, t => theme.bg("customMessageBg", t));
+		// Claude-style transcripts keep injected messages inline; legacy rendering keeps the card background.
+		this.#box = new Box(
+			useClaudeStatusLine() ? 2 : 1,
+			useClaudeStatusLine() ? 0 : 1,
+			useClaudeStatusLine() ? undefined : t => theme.bg("customMessageBg", t),
+		);
 		this.#box.setIgnoreTight(true);
 
 		this.#rebuild();

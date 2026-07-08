@@ -1,4 +1,5 @@
 import { Box, Container, Spacer, Text } from "@oh-my-pi/pi-tui";
+import { useClaudeStatusLine } from "../../lite/render-policy";
 import { theme } from "../../modes/theme/theme";
 import type { TodoItem } from "../../tools/todo";
 
@@ -25,6 +26,23 @@ export class TodoReminderComponent extends Container {
 		this.addChild(this.#box);
 
 		this.#rebuild();
+	}
+
+	override render(width: number): readonly string[] {
+		if (!useClaudeStatusLine()) return super.render(width);
+
+		const count = this.todos.length;
+		const label = count === 1 ? "todo" : "todos";
+		const header = theme.fg(
+			"warning",
+			`${theme.icon.warning} ${count} incomplete ${label} · reminder ${this.attempt}/${this.maxAttempts}`,
+		);
+		const todoList = this.todos.map(todo => `  ${theme.checkbox.unchecked} ${theme.italic(todo.content)}`).join("\n");
+		const text = new Text(`${header}\n\n${todoList}`, 2, 0).setIgnoreTight(true);
+		const block = new Container();
+		block.addChild(new Spacer(1));
+		block.addChild(text);
+		return block.render(width);
 	}
 
 	#rebuild(): void {

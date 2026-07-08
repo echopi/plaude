@@ -2,6 +2,7 @@ import * as path from "node:path";
 import type { Component } from "@oh-my-pi/pi-tui";
 import { Container, Text } from "@oh-my-pi/pi-tui";
 import { InternalUrlRouter } from "../../internal-urls";
+import { useClaudeStatusLine } from "../../lite/render-policy";
 import { getLanguageFromPath, theme } from "../../modes/theme/theme";
 import { parseLineRanges, selectorLineRanges, splitPathAndSel } from "../../tools/path-utils";
 import { PREVIEW_LIMITS, shortenPath } from "../../tools/render-utils";
@@ -305,7 +306,7 @@ export class ReadToolGroupComponent extends Container implements ToolExecutionHa
 	constructor(options: ReadToolGroupOptions = {}) {
 		super();
 		this.#showContentPreview = options.showContentPreview ?? false;
-		this.#text = new Text("", 0, 0);
+		this.#text = new Text("", this.#textPaddingX(), 0);
 		this.addChild(this.#text);
 		this.#updateDisplay();
 	}
@@ -412,7 +413,7 @@ export class ReadToolGroupComponent extends Container implements ToolExecutionHa
 
 		// Clear previous children and rebuild the summary and preview blocks.
 		this.clear();
-		this.#text = new Text("", 0, 0);
+		this.#text = new Text("", this.#textPaddingX(), 0);
 
 		if (displayRows.length === 0) {
 			this.#text.setText(` ${theme.format.bullet} ${theme.fg("toolTitle", theme.bold("Read"))}`);
@@ -672,5 +673,11 @@ export class ReadToolGroupComponent extends Container implements ToolExecutionHa
 			return theme.fg("error", theme.status.error);
 		}
 		return theme.fg("dim", theme.status.pending);
+	}
+
+	#textPaddingX(): number {
+		// Read rows already include one leading spacer before the status glyph.
+		// One Text padding column brings the visible Claude-style gutter to two columns.
+		return useClaudeStatusLine() ? 1 : 0;
 	}
 }

@@ -20,6 +20,8 @@ function extractLinkTexts(text: string): string[] {
 }
 
 describe("ReadToolGroupComponent", () => {
+	const originalPlaudeStatuslineStyle = process.env.PLAUDE_STATUSLINE_STYLE;
+
 	beforeAll(async () => {
 		resetSettingsForTest();
 		await Settings.init({ inMemory: true });
@@ -28,6 +30,11 @@ describe("ReadToolGroupComponent", () => {
 
 	afterEach(() => {
 		settings.clearOverride("tui.hyperlinks");
+		if (originalPlaudeStatuslineStyle === undefined) {
+			delete process.env.PLAUDE_STATUSLINE_STYLE;
+		} else {
+			process.env.PLAUDE_STATUSLINE_STYLE = originalPlaudeStatuslineStyle;
+		}
 		vi.restoreAllMocks();
 	});
 
@@ -75,6 +82,23 @@ describe("ReadToolGroupComponent", () => {
 		expect(plain).not.toContain(themeModule.theme.status.success);
 		expect(rendered).toContain(themeModule.theme.fg("text", themeModule.theme.status.enabled));
 		expect(rendered).not.toContain(themeModule.theme.fg("success", themeModule.theme.status.enabled));
+	});
+
+	it("keeps Claude-style read group summaries away from the left terminal edge", () => {
+		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+		const component = new ReadToolGroupComponent();
+		const examplePath = path.resolve("/tmp/example.ts");
+		component.updateArgs({ path: examplePath }, "read-success");
+		component.updateResult(
+			{
+				content: [{ type: "text", text: "line 1" }],
+			},
+			false,
+			"read-success",
+		);
+
+		const plain = Bun.stripANSI(component.render(120).join("\n"));
+		expect(plain.split("\n").some(line => line.startsWith("  ") && line.includes(`Read ${examplePath}`))).toBe(true);
 	});
 
 	it("omits duplicate success marks from multi-read child rows", () => {

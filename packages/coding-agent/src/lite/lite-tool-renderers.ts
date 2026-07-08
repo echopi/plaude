@@ -4,6 +4,7 @@ import type { Theme } from "../modes/theme/theme";
 import { formatStatusIcon, previewLine, replaceTabs, truncateToWidth } from "../tools/render-utils";
 import type { ToolRenderer } from "../tools/renderers";
 import { renderLiteTaskResult } from "./lite-task-renderer";
+import { useClaudeStatusLine } from "./render-policy";
 
 type ToolResult = {
 	content: Array<{ type: string; text?: string }>;
@@ -96,7 +97,7 @@ function resultSummary(result: ToolResult): string {
 }
 
 function renderLine(text: string, theme: Theme, color: "dim" | "text" | "error" = "text"): Component {
-	return new Text(theme.fg(color, truncateToWidth(text, 120)), 0, 0);
+	return new Text(theme.fg(color, truncateToWidth(text, 120)), useClaudeStatusLine() ? 2 : 0, 0);
 }
 
 function diffTextFromDetails(details: unknown): string | undefined {
@@ -169,7 +170,7 @@ function compactDiffLines(diff: string): string[] {
 
 function renderDiffLine(line: string, theme: Theme): Component {
 	const color = line.startsWith("+") && !line.startsWith("+++") ? "success" : line.startsWith("-") ? "error" : "dim";
-	return new Text(theme.fg(color, truncateToWidth(line, 120)), 0, 0);
+	return new Text(theme.fg(color, truncateToWidth(line, 120)), useClaudeStatusLine() ? 2 : 0, 0);
 }
 
 function renderLiteEditResult(

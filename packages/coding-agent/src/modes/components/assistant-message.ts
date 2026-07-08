@@ -21,6 +21,10 @@ import { type CacheInvalidation, CacheInvalidationMarkerComponent } from "./cach
 const MAX_TRANSCRIPT_ERROR_LINES = 8;
 const CLAUDE_TRANSCRIPT_GUTTER = " ";
 
+function assistantMarkdownOptions(): { plainTables: boolean } | undefined {
+	return useClaudeStatusLine() ? { plainTables: true } : undefined;
+}
+
 /** Opening or closing fence of a code block: ≥3 backticks/tildes plus info string. */
 const CODE_FENCE_LINE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 
@@ -787,7 +791,15 @@ export class AssistantMessageComponent extends Container {
 			if (content.type === "text" && canonicalizeMessage(content.text)) {
 				// Set paddingY=0 to avoid extra spacing before tool executions
 				const trimmed = content.text.trim();
-				const md = new Markdown(trimmed, 1, 0, getLiteMarkdownTheme());
+				const md = new Markdown(
+					trimmed,
+					1,
+					0,
+					getLiteMarkdownTheme(),
+					undefined,
+					undefined,
+					assistantMarkdownOptions(),
+				);
 				md.transientRenderCache = this.#lastUpdateTransient;
 				this.#contentContainer.addChild(md);
 				captureItems?.push({ md, contentIndex: i, blockType: "text", lastText: trimmed });
@@ -808,10 +820,18 @@ export class AssistantMessageComponent extends Container {
 					);
 
 				// Thinking traces in thinkingText color, italic
-				const md = new Markdown(thinkingText, 1, 0, getLiteMarkdownTheme(), {
-					color: (text: string) => theme.fg("thinkingText", text),
-					italic: true,
-				});
+				const md = new Markdown(
+					thinkingText,
+					1,
+					0,
+					getLiteMarkdownTheme(),
+					{
+						color: (text: string) => theme.fg("thinkingText", text),
+						italic: true,
+					},
+					undefined,
+					assistantMarkdownOptions(),
+				);
 				md.transientRenderCache = this.#lastUpdateTransient;
 				this.#contentContainer.addChild(md);
 				captureItems?.push({ md, contentIndex: i, blockType: "thinking", lastText: thinkingText });
