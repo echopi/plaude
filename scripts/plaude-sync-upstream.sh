@@ -119,6 +119,14 @@ run_once() {
 	upstream_sha="$(git rev-parse "$UPSTREAM_REMOTE/$BASE_BRANCH")"
 
 	git checkout "$WORK_BRANCH" 2>/dev/null || git checkout -b "$WORK_BRANCH" "$FORK_REMOTE/$BASE_BRANCH"
+	git merge --no-edit "$FORK_REMOTE/$BASE_BRANCH" || {
+		git merge --abort >/dev/null 2>&1 || true
+		receipt_dir="$(write_receipt fork-conflict)"
+		message="Fork base merge conflict for $FORK_REMOTE/$BASE_BRANCH; receipt: $receipt_dir"
+		notify fork-conflict "$message" "$receipt_dir"
+		echo "$message" >&2
+		return 3
+	}
 	git merge --no-edit "$UPSTREAM_REMOTE/$BASE_BRANCH" || {
 		git merge --abort >/dev/null 2>&1 || true
 		receipt_dir="$(write_receipt conflict)"
