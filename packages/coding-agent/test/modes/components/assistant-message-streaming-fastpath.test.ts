@@ -86,6 +86,36 @@ describe("AssistantMessageComponent streaming fast path", () => {
 		expect(rendered).not.toContain(". . .");
 	});
 
+	it("uses plain markdown table and quote symbols in lite mode", async () => {
+		const originalLiteRenderTest = process.env.OMP_LITE_RENDER_TEST;
+		process.env.OMP_LITE_RENDER_TEST = "1";
+		resetSettingsForTest();
+		await Settings.init({ inMemory: true });
+		try {
+			const rendered = Bun.stripANSI(
+				teardownRender(
+					msg([
+						{
+							type: "text",
+							text: ["> note", "", "| Name | Score |", "| --- | --- |", "| alpha | 1 |"].join("\n"),
+						},
+					]),
+				),
+			);
+
+			expect(rendered).toContain("> note");
+			expect(rendered).toContain("+");
+			expect(rendered).not.toContain("│");
+			expect(rendered).not.toContain("┌");
+		} finally {
+			if (originalLiteRenderTest === undefined) {
+				delete process.env.OMP_LITE_RENDER_TEST;
+			} else {
+				process.env.OMP_LITE_RENDER_TEST = originalLiteRenderTest;
+			}
+		}
+	});
+
 	it("matches teardown for a single growing text block", () => {
 		const reused = new AssistantMessageComponent();
 		let text = "";

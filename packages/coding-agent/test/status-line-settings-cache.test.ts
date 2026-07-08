@@ -186,6 +186,32 @@ describe("StatusLineComponent effective settings cache", () => {
 		expect(component.getEffectiveSettingsForTest()).toBe(effective);
 	});
 
+	it("renders the main status as a standalone line for Claude statusline style", () => {
+		const previous = process.env.PLAUDE_STATUSLINE_STYLE;
+		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+		try {
+			const component = makeComponent({
+				preset: "custom",
+				leftSegments: ["model"],
+				rightSegments: [],
+				separator: "none",
+				sessionAccent: false,
+			});
+			component.setHookStatus("hook", "hook running");
+
+			const lines = component.render(80).map(line => stripVTControlCharacters(line));
+
+			expect(lines[0]).toContain("Test Model");
+			expect(lines[1]).toBe("hook running");
+		} finally {
+			if (previous === undefined) {
+				delete process.env.PLAUDE_STATUSLINE_STYLE;
+			} else {
+				process.env.PLAUDE_STATUSLINE_STYLE = previous;
+			}
+		}
+	});
+
 	it("does not mutate shared preset segment options during narrow renders", () => {
 		const before = { ...STATUS_LINE_PRESETS.default.segmentOptions?.path };
 		const component = makeComponent({ preset: "default", sessionAccent: false });

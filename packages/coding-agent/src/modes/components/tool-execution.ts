@@ -16,6 +16,8 @@ import {
 } from "@oh-my-pi/pi-tui";
 import { getProjectDir, logger, sanitizeText } from "@oh-my-pi/pi-utils";
 import { EDIT_MODE_STRATEGIES, type EditMode, type PerFileDiffPreview } from "../../edit";
+import { getLiteToolRenderer } from "../../lite/lite-tool-renderers";
+import { getRenderDensity, isLiteRender } from "../../lite/render-policy";
 import type { Theme } from "../../modes/theme/theme";
 import { getThemeEpoch, theme } from "../../modes/theme/theme";
 import { BASH_DEFAULT_PREVIEW_LINES } from "../../tools/bash";
@@ -333,7 +335,7 @@ export class ToolExecutionComponent extends Container implements NativeScrollbac
 		this.#contentText = new WidthAwareText(contentWidth => this.#formatToolExecution(contentWidth), 1, 1);
 
 		// Use Box for custom tools or built-in tools that have renderers
-		const hasRenderer = toolName in toolRenderers;
+		const hasRenderer = getRenderDensity(false) === "lite" || toolName in toolRenderers;
 		const hasCustomRenderer = !!(tool?.renderCall || tool?.renderResult);
 		if (hasCustomRenderer || hasRenderer) {
 			this.addChild(this.#contentBox);
@@ -578,7 +580,9 @@ export class ToolExecutionComponent extends Container implements NativeScrollbac
 		const isStreamingArgs = !this.#argsComplete && (isEditLikeToolName(this.#toolName) || this.#toolName === "write");
 		const isBackgroundAsyncRunning =
 			(this.#result?.details as { async?: { state?: string } } | undefined)?.async?.state === "running";
-		const renderer = toolRenderers[this.#toolName] as
+		const renderer = (
+			this.#useLiteRenderer() ? getLiteToolRenderer(this.#toolName) : toolRenderers[this.#toolName]
+		) as
 			| {
 					animatedPendingPreview?: boolean | ((args: unknown) => boolean);
 					animatedPartialResult?: boolean | ((args: unknown) => boolean);
@@ -863,11 +867,16 @@ export class ToolExecutionComponent extends Container implements NativeScrollbac
 		return `${o.maxWidthCells}:${o.maxHeightCells ?? "-"}`;
 	}
 
+	#useLiteRenderer(): boolean {
+		return isLiteRender(this.#expanded);
+	}
+
 	#rebuildDisplay(): void {
 		// Sync shared mutable render state for component closures
 		this.#renderState.expanded = this.#expanded;
 		this.#renderState.isPartial = this.#isPartial;
 		this.#renderState.spinnerFrame = this.#spinnerFrame;
+		this.#contentBox.setPaddingY(this.#useLiteRenderer() ? 0 : 1);
 
 		// Non-self-framing tools (custom/extension renderers and the generic
 		// fallback) get a padded, state-tinted block — built-ins that draw their
@@ -875,8 +884,48 @@ export class ToolExecutionComponent extends Container implements NativeScrollbac
 		const stateBgKey = this.#isPartial ? "toolPendingBg" : this.#result?.isError ? "toolErrorBg" : "toolSuccessBg";
 		const stateBgFn = (t: string) => theme.bg(stateBgKey, t);
 
-		// Check for custom tool rendering
-		if (this.#tool && (this.#tool.renderCall || this.#tool.renderResult)) {
+		if (this.#useLiteRenderer()) {
+			const renderer = getLiteToolRenderer(this.#toolName);
+			this.#contentBox.setBgFn(undefined);
+			this.#contentBox.setPaddingX(0);
+			this.#contentBox.clear();
+			const renderContext = this.#buildRenderContext();
+			this.#renderState.renderContext = renderContext;
+
+			const shouldRenderCall = !this.#result || !renderer.mergeCallAndResult;
+			if (shouldRenderCall) {
+				try {
+					const callArgs = this.#getCallArgsForRender();
+					const callComponent = renderer.renderCall(callArgs, this.#renderState, theme);
+					if (callComponent) this.#contentBox.addChild(callComponent);
+				} catch (err) {
+					logger.warn("Lite tool renderer failed", { tool: this.#toolName, error: String(err) });
+					this.#contentBox.addChild(new Text(theme.fg("toolTitle", theme.bold(this.#toolLabel)), 0, 0));
+				}
+			}
+
+			if (this.#result) {
+				try {
+					const resultComponent = renderer.renderResult(
+						{
+							content: this.#result.content.map(item => ({ type: item.type, text: item.text })),
+							details: this.#result.details,
+							isError: this.#result.isError,
+						},
+						this.#renderState,
+						theme,
+						this.#getCallArgsForRender(),
+					);
+					if (resultComponent) this.#contentBox.addChild(resultComponent);
+				} catch (err) {
+					logger.warn("Lite tool renderer failed", { tool: this.#toolName, error: String(err) });
+					const output = this.#getTextOutput();
+					if (output) {
+						this.#contentBox.addChild(new Text(theme.fg("toolOutput", replaceTabs(output)), 0, 0));
+					}
+				}
+			}
+		} else if (this.#tool && (this.#tool.renderCall || this.#tool.renderResult)) {
 			const tool = this.#tool;
 			const mergeCallAndResult = Boolean((tool as { mergeCallAndResult?: boolean }).mergeCallAndResult);
 			// Custom tools use Box for flexible component rendering

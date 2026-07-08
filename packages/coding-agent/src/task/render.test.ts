@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from "bun:test";
-import { Settings } from "../config/settings";
+import { Settings, settings } from "../config/settings";
 import { getThemeByName, setThemeInstance, type Theme } from "../modes/theme/theme";
 import { renderResult } from "./render";
 import { taskToolRenderer } from "./renderer";
@@ -161,6 +161,7 @@ describe("task live progress rendering", () => {
 	});
 
 	it("strips bash footer notices from expanded subagent recent output", () => {
+		settings.set("liteMode", false);
 		setViewportRows(40);
 		const chronological = [
 			"line 1",
@@ -186,6 +187,7 @@ describe("task live progress rendering", () => {
 	});
 
 	it("caps collapsed nested task progress at four rows plus an elision line", () => {
+		settings.set("liteMode", false);
 		setViewportRows(40);
 		const text = renderProgressText(makeParentWithNestedProgress(6), false, uiTheme);
 
@@ -199,6 +201,7 @@ describe("task live progress rendering", () => {
 	});
 
 	it("shows every nested task progress row when expanded", () => {
+		settings.set("liteMode", false);
 		setViewportRows(40);
 		const text = renderProgressText(makeParentWithNestedProgress(6), true, uiTheme);
 
@@ -209,6 +212,7 @@ describe("task live progress rendering", () => {
 	});
 
 	it("caps collapsed finalized nested task results and keeps the failed child visible", () => {
+		settings.set("liteMode", false);
 		setViewportRows(40);
 		const text = renderResultText(makeParentWithNestedResults(6), false, uiTheme);
 

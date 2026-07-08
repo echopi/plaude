@@ -41,6 +41,7 @@ import type {
 	StatusLineSeparatorStyle,
 } from "../../config/settings-schema";
 import { SETTING_TABS, TAB_METADATA } from "../../config/settings-schema";
+import { getLiteSettingsForTab, hasLiteAdvancedSettings } from "../../lite/lite-settings-filter";
 import { getCurrentThemeName, getSelectListTheme, getSettingsListTheme, theme } from "../../modes/theme/theme";
 import { AUTO_THINKING, type ConfiguredThinkingLevel } from "../../thinking";
 import { getTabBarTheme } from "../shared";
@@ -49,6 +50,18 @@ import { handleInputOrEscape, PluginSettingsComponent } from "./plugin-settings"
 import { getSettingDef, getSettingsForTab, type SettingDef } from "./settings-defs";
 import { SnapcompactShapePreview } from "./snapcompact-shape-preview";
 import { getPreset } from "./status-line/presets";
+
+const LITE_ADVANCED_SETTING_ID_PREFIX = "__lite_advanced:";
+
+function liteAdvancedSettingId(tab: SettingTab): string {
+	return `${LITE_ADVANCED_SETTING_ID_PREFIX}${tab}`;
+}
+
+function parseLiteAdvancedSettingId(id: string): SettingTab | undefined {
+	if (!id.startsWith(LITE_ADVANCED_SETTING_ID_PREFIX)) return undefined;
+	const tab = id.slice(LITE_ADVANCED_SETTING_ID_PREFIX.length);
+	return (SETTING_TABS as readonly string[]).includes(tab) ? (tab as SettingTab) : undefined;
+}
 
 /**
  * A submenu component for selecting from a list of options.
@@ -422,6 +435,7 @@ export class SettingsSelectorComponent implements Component {
 	#searchMatchCount = 0;
 	/** First matching item id per tab id, for Tab-key jumps while searching. */
 	#searchFirstMatch = new Map<string, string>();
+	#liteAdvancedTabs = new Set<SettingTab>();
 	#textInputActive = false;
 	#hasSectionJump = false;
 	// Frame geometry from the last render, for mouse hit-testing (the
@@ -676,7 +690,8 @@ export class SettingsSelectorComponent implements Component {
 		let total = 0;
 		for (const tab of SETTING_TABS) {
 			const candidates: SettingItem[] = [];
-			for (const def of getSettingsForTab(tab)) {
+			const defs = this.#getVisibleDefsForTab(tab);
+			for (const def of defs) {
 				const item = this.#defToItem(def);
 				if (item) candidates.push(item);
 			}
@@ -1070,9 +1085,11 @@ export class SettingsSelectorComponent implements Component {
 	 * Show a settings tab using definitions.
 	 */
 	#showSettingsTab(tabId: SettingTab): void {
-		const defs = getSettingsForTab(tabId);
+		const allDefs = getSettingsForTab(tabId);
+		const defs = this.#getVisibleDefsForTab(tabId, allDefs);
+		const showLiteAdvanced = hasLiteAdvancedSettings(tabId, allDefs) && !this.#liteAdvancedTabs.has(tabId);
 
-		const items = this.#buildItemsForDefs(defs);
+		const items = this.#buildItemsForDefs(defs, showLiteAdvanced ? tabId : undefined);
 		// Mirror SettingsList's section detection (leading ungrouped items form
 		// an implicit section) so the footer hint only advertises PgUp/PgDn
 		// when the jump actually changes sections.
@@ -1084,6 +1101,13 @@ export class SettingsSelectorComponent implements Component {
 			10,
 			getSettingsListTheme(),
 			(id, newValue) => {
+				const advancedTab = parseLiteAdvancedSettingId(id);
+				if (advancedTab) {
+					this.#liteAdvancedTabs.add(advancedTab);
+					this.#showSettingsTab(advancedTab);
+					return;
+				}
+
 				const def = defs.find(d => d.path === id);
 				if (!def) return;
 
@@ -1106,7 +1130,7 @@ export class SettingsSelectorComponent implements Component {
 				// definition-to-item mapping so condition-gated settings (e.g. the
 				// Hindsight cluster guarded by memory.backend) appear/disappear
 				// immediately instead of waiting for the next tab switch.
-				this.#refreshCurrentTabItems(defs);
+				this.#refreshCurrentTabItems(tabId, allDefs);
 			},
 			() => this.callbacks.onCancel(),
 			// The selector owns type-to-search and the footer hint; pin the
@@ -1120,7 +1144,11 @@ export class SettingsSelectorComponent implements Component {
 	 * Inserts a heading row whenever the (group-sorted) definition list crosses
 	 * into a new group; groups whose items are all condition-hidden emit none.
 	 */
-	#buildItemsForDefs(defs: SettingDef[]): SettingItem[] {
+	#getVisibleDefsForTab(tabId: SettingTab, allDefs: readonly SettingDef[] = getSettingsForTab(tabId)): SettingDef[] {
+		return getLiteSettingsForTab(tabId, allDefs, this.#liteAdvancedTabs.has(tabId));
+	}
+
+	#buildItemsForDefs(defs: SettingDef[], liteAdvancedTab?: SettingTab): SettingItem[] {
 		const items: SettingItem[] = [];
 		let lastGroup: string | undefined;
 		for (const def of defs) {
@@ -1132,13 +1160,25 @@ export class SettingsSelectorComponent implements Component {
 			}
 			items.push(item);
 		}
+		if (liteAdvancedTab) {
+			items.push({ id: "__heading:Advanced", label: "Advanced", currentValue: "", heading: true });
+			items.push({
+				id: liteAdvancedSettingId(liteAdvancedTab),
+				label: "Advanced Settings",
+				description: "Show the full settings list for this tab",
+				currentValue: "open",
+				values: ["open"],
+			});
+		}
 		return items;
 	}
 
 	/** Re-evaluate condition gates against the current settings and refresh the active list. */
-	#refreshCurrentTabItems(defs: SettingDef[]): void {
+	#refreshCurrentTabItems(tabId: SettingTab, allDefs: readonly SettingDef[]): void {
 		if (this.#currentTabId === "plugins" || !this.#currentList) return;
-		this.#currentList.setItems(this.#buildItemsForDefs(defs));
+		const defs = this.#getVisibleDefsForTab(tabId, allDefs);
+		const showLiteAdvanced = hasLiteAdvancedSettings(tabId, allDefs) && !this.#liteAdvancedTabs.has(tabId);
+		this.#currentList.setItems(this.#buildItemsForDefs(defs, showLiteAdvanced ? tabId : undefined));
 	}
 
 	/**

@@ -1,3 +1,4 @@
+import { liteStatusPreset } from "../../../lite/lite-status-preset";
 import type { PresetDef, StatusLinePreset } from "./types";
 
 export const STATUS_LINE_PRESETS: Record<StatusLinePreset, PresetDef> = {
@@ -11,6 +12,8 @@ export const STATUS_LINE_PRESETS: Record<StatusLinePreset, PresetDef> = {
 			git: { showBranch: true, showStaged: true, showUnstaged: true, showUntracked: true },
 		},
 	},
+
+	lite: liteStatusPreset,
 
 	minimal: {
 		leftSegments: ["path", "git"],

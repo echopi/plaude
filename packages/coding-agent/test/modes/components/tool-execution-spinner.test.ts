@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
+import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import { ToolExecutionComponent } from "@oh-my-pi/pi-coding-agent/modes/components/tool-execution";
 import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
 import type { TUI } from "@oh-my-pi/pi-tui";
@@ -10,6 +11,8 @@ import type { TUI } from "@oh-my-pi/pi-tui";
 // would otherwise keep serving the first pending frame.
 describe("ToolExecutionComponent live preview spinners", () => {
 	beforeAll(async () => {
+		resetSettingsForTest();
+		await Settings.init({ inMemory: true, overrides: { liteMode: false } });
 		await initTheme();
 	});
 

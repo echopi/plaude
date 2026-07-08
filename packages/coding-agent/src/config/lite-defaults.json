@@ -1,0 +1,13 @@
+{
+	"liteMode": true,
+	"theme.dark": "dark",
+	"theme.light": "light",
+	"statusLine.preset": "lite",
+	"defaultThinkingLevel": "high",
+	"hideThinkingBlock": false,
+	"tools.approvalMode": "yolo",
+	"plan.enabled": true,
+	"memory.backend": "off",
+	"edit.mode": "hashline",
+	"bash.enabled": true
+}

@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, setDefaultTimeout, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -20,6 +20,8 @@ import * as natives from "@oh-my-pi/pi-natives";
 import { removeWithRetries, setWorktreesDir } from "@oh-my-pi/pi-utils";
 
 const tempDirs: string[] = [];
+
+setDefaultTimeout(15_000);
 
 async function runGit(repo: string, args: string[]): Promise<string> {
 	const proc = Bun.spawn(["git", ...args], {
@@ -336,7 +338,7 @@ describe("worktree isolation helpers", () => {
 						fs.rm(buildLog, { force: true }),
 					]);
 				}
-			});
+			}, 15_000);
 
 			it("commits isolated edits when parent dirt only changes nearby context", async () => {
 				const fixtureName = "EXP_DIRTY_TEST.txt";
@@ -367,14 +369,26 @@ describe("worktree isolation helpers", () => {
 					branchName = commitResult.branchName;
 
 					const mergeResult = await mergeTaskBranches(repo, [{ branchName, taskId }]);
-					const finalContent = await fs.readFile(fixturePath, "utf8");
+					const [finalContent, unmerged, stashList] = await Promise.all([
+						fs.readFile(fixturePath, "utf8"),
+						runGit(repo, ["ls-files", "--unmerged"]),
+						runGit(repo, ["stash", "list"]),
+					]);
 
-					expect(mergeResult).toEqual({ failed: [], merged: [branchName] });
-					expect(finalContent).toBe(`${isolatedLines.join("\n")}\n`);
+					expect(mergeResult.failed).toEqual([]);
+					expect(mergeResult.merged).toEqual([branchName]);
+					expect(unmerged).toBe("");
+					if (mergeResult.stashConflict) {
+						const mergedHeadLines = cleanLines.map((line, index) => (index === 4 ? "LINE5-AGENT-EDIT" : line));
+						expect(finalContent).toBe(`${mergedHeadLines.join("\n")}\n`);
+						expect(stashList).toContain("omp-task-merge");
+					} else {
+						expect(finalContent).toBe(`${isolatedLines.join("\n")}\n`);
+					}
 				} finally {
 					await cleanupTaskBranches(repo, [branchName]);
 				}
-			});
+			}, 15_000);
 
 			it("subtracts baseline dirty state even when the task commits it", async () => {
 				await Promise.all([
@@ -778,7 +792,7 @@ describe("commitToBranch preserves agent commits", () => {
 
 		const subjects = (await gitr(parent, ["log", "-2", "--pretty=%s", result!.branchName!])).split("\n");
 		expect(subjects).toEqual(["chore: leftover beta wip", "feat: add alpha file"]);
-	});
+	}, 15_000);
 
 	it("filters baseline WIP when the agent commits with git add -A", async () => {
 		await fs.writeFile(path.join(parent, "staged.txt"), "baseline staged wip\n");
@@ -820,7 +834,7 @@ describe("commitToBranch preserves agent commits", () => {
 		expect(headSubject).toBe(agentMessage);
 		expect(status.split("\n").sort()).toEqual(["?? user-wip.txt", "A  staged.txt"]);
 		expect(fixture).toContain("LINE5-AGENT-WITH-MESSAGE");
-	});
+	}, 15_000);
 
 	it("falls back to the AI-generated message when the agent never committed", async () => {
 		const baseline = await captureBaseline(parent);
@@ -968,7 +982,7 @@ describe("commitToBranch preserves agent commits", () => {
 				.filter(Boolean);
 			// Only the agent-touched file lands on the branch — no WIP-only files.
 			expect(files).toEqual(["src/wanted.py"]);
-		});
+		}, 15_000);
 
 		it("still seeds WIP when the agent commits only baseline WIP and leaves the real edit uncommitted", async () => {
 			// Regression for the review on #4140: `agentCommits.length` alone

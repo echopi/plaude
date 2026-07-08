@@ -117,11 +117,12 @@ async function probePythonKernelAvailability(cwd: string, interpreter?: string):
 		const failures: string[] = [];
 		for (const runtime of runtimes) {
 			try {
-				const probe = await $`${runtime.pythonPath} -c "import sys;sys.exit(0)"`
-					.quiet()
-					.nothrow()
-					.cwd(cwd)
-					.env(runtime.env);
+				const probe =
+					await $`${runtime.pythonPath} -c "import sys;sys.exit(0 if sys.version_info >= (3, 9) else 1)"`
+						.quiet()
+						.nothrow()
+						.cwd(cwd)
+						.env(runtime.env);
 				if (probe.exitCode === 0) {
 					return { ok: true, pythonPath: runtime.pythonPath, runtime };
 				}

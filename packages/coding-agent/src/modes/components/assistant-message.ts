@@ -3,7 +3,8 @@ import { Container, Image, type ImageBudget, ImageProtocol, Markdown, Spacer, TE
 import { formatNumber } from "@oh-my-pi/pi-utils";
 import chalk from "chalk";
 import type { AssistantThinkingRenderer } from "../../extensibility/extensions/types";
-import { getMarkdownTheme, theme } from "../../modes/theme/theme";
+import { getLiteMarkdownTheme } from "../../lite/lite-markdown-theme";
+import { theme } from "../../modes/theme/theme";
 import { getPreviewLines, resolveImageOptions, TRUNCATE_LENGTHS } from "../../tools/render-utils";
 import { canonicalizeMessage, formatThinkingForDisplay, hasDisplayableThinking } from "../../utils/thinking-display";
 import { resolveAssistantErrorPresentation } from "../utils/transcript-render-helpers";
@@ -781,7 +782,7 @@ export class AssistantMessageComponent extends Container {
 			if (content.type === "text" && canonicalizeMessage(content.text)) {
 				// Set paddingY=0 to avoid extra spacing before tool executions
 				const trimmed = content.text.trim();
-				const md = new Markdown(trimmed, 1, 0, getMarkdownTheme());
+				const md = new Markdown(trimmed, 1, 0, getLiteMarkdownTheme());
 				md.transientRenderCache = this.#lastUpdateTransient;
 				this.#contentContainer.addChild(md);
 				captureItems?.push({ md, contentIndex: i, blockType: "text", lastText: trimmed });
@@ -802,7 +803,7 @@ export class AssistantMessageComponent extends Container {
 					);
 
 				// Thinking traces in thinkingText color, italic
-				const md = new Markdown(thinkingText, 1, 0, getMarkdownTheme(), {
+				const md = new Markdown(thinkingText, 1, 0, getLiteMarkdownTheme(), {
 					color: (text: string) => theme.fg("thinkingText", text),
 					italic: true,
 				});

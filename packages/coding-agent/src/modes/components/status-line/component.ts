@@ -5,6 +5,7 @@ import type { AssistantMessage, UsageLimit, UsageReport } from "@oh-my-pi/pi-ai"
 import { type Component, truncateToWidth, visibleWidth } from "@oh-my-pi/pi-tui";
 import { getProjectDir } from "@oh-my-pi/pi-utils";
 import { settings } from "../../../config/settings";
+import { isLiteRender, useClaudeStatusLine } from "../../../lite/render-policy";
 import type { AgentSession } from "../../../session/agent-session";
 import type { OAuthAccountIdentity } from "../../../session/auth-storage";
 import { limitMatchesActiveAccount } from "../../../slash-commands/helpers/active-oauth-account";
@@ -1073,7 +1074,7 @@ export class StatusLineComponent implements Component {
 	}
 
 	#computeEffectiveSettings(): EffectiveStatusLineSettings {
-		const preset = this.#settings.preset ?? "default";
+		const preset = isLiteRender() ? "lite" : (this.#settings.preset ?? "default");
 		const presetDef = getPreset(preset);
 		const useCustomSegments = preset === "custom";
 		const mergedSegmentOptions: StatusLineSettings["segmentOptions"] = {};
@@ -1297,16 +1298,26 @@ export class StatusLineComponent implements Component {
 	}
 
 	render(width: number): readonly string[] {
-		// Only render hook statuses - main status is in editor's top border
+		const lines: string[] = [];
+		if (useClaudeStatusLine()) {
+			const mainLine = this.#buildStatusLine(width);
+			if (mainLine) {
+				lines.push(truncateToWidth(mainLine, width));
+			}
+		}
+
+		// In the default layout, only hook statuses render here; the main status is
+		// embedded in the editor's top border.
 		const showHooks = this.#settings.showHookStatus ?? true;
 		if (!showHooks || this.#hookStatuses.size === 0) {
-			return [];
+			return lines;
 		}
 
 		const sortedStatuses = Array.from(this.#hookStatuses.entries())
 			.sort(([a], [b]) => a.localeCompare(b))
 			.map(([, text]) => sanitizeStatusText(text));
 		const hookLine = sortedStatuses.join(" ");
-		return [truncateToWidth(hookLine, width)];
+		lines.push(truncateToWidth(hookLine, width));
+		return lines;
 	}
 }

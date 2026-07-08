@@ -12,7 +12,7 @@ import { toolRenderers } from "@oh-my-pi/pi-coding-agent/tools/renderers";
 
 beforeAll(async () => {
 	resetSettingsForTest();
-	await Settings.init({ inMemory: true });
+	await Settings.init({ inMemory: true, overrides: { liteMode: false } });
 	await initTheme(false, undefined, undefined, "dark", "light");
 });
 

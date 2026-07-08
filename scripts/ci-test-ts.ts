@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
 
 type Mode =
@@ -505,9 +504,9 @@ function isCI(): boolean {
 }
 
 // Fan-out width for the local parallel path, clamped to the command count.
-// Defaults to the machine's available parallelism; `OMP_TEST_CONCURRENCY`
-// overrides it — a positive integer to pick an exact width (dial down on a
-// memory-constrained laptop), or `all`/`max` to launch every chunk at once.
+// Defaults to one chunk at a time so `npm test` has the same deterministic
+// isolation as CI; `OMP_TEST_CONCURRENCY` opts into local fan-out — a positive
+// integer to pick an exact width, or `all`/`max` to launch every chunk at once.
 function testConcurrency(total: number): number {
 	const raw = Bun.env.OMP_TEST_CONCURRENCY?.trim().toLowerCase();
 	if (raw === "all" || raw === "max") {
@@ -517,7 +516,7 @@ function testConcurrency(total: number): number {
 	if (Number.isFinite(override) && override >= 1) {
 		return Math.min(Math.floor(override), total);
 	}
-	return Math.min(Math.max(1, os.availableParallelism()), total);
+	return Math.min(1, total);
 }
 
 // ANSI styling for interactive runs only; disabled when stdout is not a TTY or

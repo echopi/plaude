@@ -14,7 +14,7 @@ import { VirtualTerminal } from "../../tui/test/virtual-terminal";
 
 beforeAll(async () => {
 	resetSettingsForTest();
-	await Settings.init({ inMemory: true, cwd: process.cwd() });
+	await Settings.init({ inMemory: true, cwd: process.cwd(), overrides: { liteMode: false } });
 	await initTheme(false, undefined, undefined, "dark", "light");
 }, 15_000);
 

@@ -1,4 +1,6 @@
 import { Container, type SelectItem, SelectList, type SgrMouseEvent } from "@oh-my-pi/pi-tui";
+import { filterLiteThemes } from "../../lite/lite-theme-filter";
+import { isLiteRender } from "../../lite/render-policy";
 import { getSelectListTheme } from "../../modes/theme/theme";
 import { DynamicBorder } from "./dynamic-border";
 import { routeSelectListMouseWithTopBorder } from "./select-list-mouse-routing";
@@ -20,9 +22,10 @@ export class ThemeSelectorComponent extends Container {
 	) {
 		super();
 		this.#onPreview = onPreview;
+		const visibleThemes = isLiteRender() ? filterLiteThemes(themes) : themes;
 
 		// Create select items from provided themes
-		const themeItems: SelectItem[] = themes.map(name => ({
+		const themeItems: SelectItem[] = visibleThemes.map(name => ({
 			value: name,
 			label: name,
 			description: name === currentTheme ? "(current)" : undefined,
@@ -35,7 +38,7 @@ export class ThemeSelectorComponent extends Container {
 		this.#selectList = new SelectList(themeItems, 10, getSelectListTheme());
 
 		// Preselect current theme
-		const currentIndex = themes.indexOf(currentTheme);
+		const currentIndex = visibleThemes.indexOf(currentTheme);
 		if (currentIndex !== -1) {
 			this.#selectList.setSelectedIndex(currentIndex);
 		}

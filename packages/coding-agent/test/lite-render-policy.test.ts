@@ -1,0 +1,155 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import type { AgentTool } from "@oh-my-pi/pi-agent-core";
+import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { ToolExecutionComponent } from "@oh-my-pi/pi-coding-agent/modes/components/tool-execution";
+import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
+import { Text, type TUI } from "@oh-my-pi/pi-tui";
+
+function strip(component: ToolExecutionComponent): string {
+	return Bun.stripANSI(component.render(160).join("\n"));
+}
+
+function makeUi(): TUI {
+	return { requestRender() {}, requestComponentRender() {} } as unknown as TUI;
+}
+
+function result(text: string, details?: unknown) {
+	return { content: [{ type: "text", text }], details };
+}
+
+function customTool(): AgentTool {
+	return {
+		name: "custom_render",
+		label: "Custom",
+		renderCall(): Text {
+			return new Text("full:call", 0, 0);
+		},
+		renderResult(): Text {
+			return new Text("full:result", 0, 0);
+		},
+	} as unknown as AgentTool;
+}
+
+describe("lite render policy", () => {
+	const originalLiteRenderTest = process.env.OMP_LITE_RENDER_TEST;
+
+	beforeEach(async () => {
+		process.env.OMP_LITE_RENDER_TEST = "1";
+		resetSettingsForTest();
+		await Settings.init({ inMemory: true });
+		await initTheme();
+	});
+
+	afterEach(() => {
+		if (originalLiteRenderTest === undefined) {
+			delete process.env.OMP_LITE_RENDER_TEST;
+		} else {
+			process.env.OMP_LITE_RENDER_TEST = originalLiteRenderTest;
+		}
+	});
+
+	it("renders completed tools as a collapsed one-line summary by default", () => {
+		const component = new ToolExecutionComponent(
+			"bash",
+			{ command: "printf hello" },
+			{},
+			undefined,
+			makeUi(),
+			process.cwd(),
+		);
+
+		component.updateResult(result("hello\nwarning: check me", { exitCode: 0 }), false);
+
+		const rendered = strip(component);
+		expect(rendered).toContain("bash(printf hello) -> exit 0: warning: check me");
+		expect(rendered).not.toContain("Wall:");
+	});
+
+	it("uses the original renderer when tool output is expanded", () => {
+		const component = new ToolExecutionComponent("custom_render", {}, {}, customTool(), makeUi(), process.cwd());
+
+		component.updateResult(result("done"), false);
+		expect(strip(component)).toContain("custom_render -> ok");
+		expect(strip(component)).not.toContain("full:result");
+
+		component.setExpanded(true);
+		expect(strip(component)).toContain("full:result");
+	});
+
+	it("uses the original renderer when liteMode is disabled", async () => {
+		resetSettingsForTest();
+		await Settings.init({ inMemory: true, overrides: { liteMode: false } });
+		await initTheme();
+
+		const component = new ToolExecutionComponent("custom_render", {}, {}, customTool(), makeUi(), process.cwd());
+
+		component.updateResult(result("done"), false);
+
+		expect(strip(component)).toContain("full:result");
+		expect(strip(component)).not.toContain("custom_render -> ok");
+	});
+
+	it("renders short edit diffs as compact hunks in lite mode", () => {
+		const component = new ToolExecutionComponent(
+			"edit",
+			{ file_path: "src/app.ts" },
+			{},
+			undefined,
+			makeUi(),
+			process.cwd(),
+		);
+
+		component.updateResult(
+			result("Edited src/app.ts (1 hunk, +2 -1)", {
+				path: "src/app.ts",
+				diff: [
+					"@@ -10,8 +10,9 @@",
+					" const before1 = true;",
+					" const before2 = true;",
+					" const before3 = true;",
+					" const before4 = true;",
+					"-const value = oldValue;",
+					"+const value = newValue;",
+					"+const enabled = true;",
+					" const after1 = true;",
+					" const after2 = true;",
+					" const after3 = true;",
+					" const after4 = true;",
+				].join("\n"),
+			}),
+			false,
+		);
+
+		const rendered = strip(component);
+		expect(rendered).toContain("edit(file_path:src/app.ts) -> ok");
+		expect(rendered).toContain("@@ -10,8 +10,9 @@");
+		expect(rendered).toContain("-const value = oldValue;");
+		expect(rendered).toContain("+const value = newValue;");
+		expect(rendered).not.toContain("const before1 = true;");
+		expect(rendered).not.toContain("const after4 = true;");
+	});
+
+	it("folds long edit diffs in lite mode", () => {
+		const component = new ToolExecutionComponent(
+			"edit",
+			{ file_path: "src/app.ts" },
+			{},
+			undefined,
+			makeUi(),
+			process.cwd(),
+		);
+		const diff = [
+			"@@ -1,24 +1,24 @@",
+			...Array.from({ length: 24 }, (_, index) => `-const old${index} = ${index};`),
+			...Array.from({ length: 24 }, (_, index) => `+const next${index} = ${index};`),
+		].join("\n");
+
+		component.updateResult(result("Edited src/app.ts (1 hunk, +24 -24)", { path: "src/app.ts", diff }), false);
+
+		const rendered = strip(component);
+		expect(rendered).toContain("edit(file_path:src/app.ts) -> ok");
+		expect(rendered).toContain("diff 49 lines folded; ctrl+o for full output");
+		expect(rendered).not.toContain("-const old0 = 0;");
+		expect(rendered).not.toContain("+const next23 = 23;");
+	});
+});

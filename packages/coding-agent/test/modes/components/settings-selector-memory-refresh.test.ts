@@ -16,6 +16,7 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+	delete process.env.OMP_LITE_RENDER_TEST;
 	resetSettingsForTest();
 	geometryStub?.restore();
 	geometryStub = undefined;
@@ -55,6 +56,10 @@ function createSelector(onCancel: () => void = () => {}): SettingsSelectorCompon
 	);
 }
 
+function stripAnsi(text: string): string {
+	return text.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
 /** Switch the selector to the memory tab. SETTING_TABS puts memory at index 4 (after appearance/model/interaction/context). */
 function focusMemoryTab(comp: SettingsSelectorComponent): void {
 	for (let i = 0; i < 4; i++) {
@@ -63,6 +68,43 @@ function focusMemoryTab(comp: SettingsSelectorComponent): void {
 }
 
 describe("SettingsSelectorComponent memory tab", () => {
+	it("folds non-core settings behind Advanced in lite mode", () => {
+		process.env.OMP_LITE_RENDER_TEST = "1";
+		const comp = createSelector();
+
+		const rendered = stripAnsi(comp.render(70).join("\n"));
+
+		expect(rendered).toContain("Dark Theme");
+		expect(rendered).toContain("Light Theme");
+		expect(rendered).toContain("Status Line Preset");
+		expect(rendered).toContain("Advanced Settings");
+		expect(rendered).not.toContain("Symbol Preset");
+	});
+
+	it("opens the full tab list from Advanced in lite mode", () => {
+		process.env.OMP_LITE_RENDER_TEST = "1";
+		const comp = createSelector();
+
+		for (let i = 0; i < 3; i++) {
+			comp.handleInput("\x1b[B");
+		}
+		comp.handleInput("\n");
+
+		const rendered = stripAnsi(comp.render(70).join("\n"));
+		expect(rendered).toContain("Symbol Preset");
+		expect(rendered).not.toContain("Advanced Settings");
+	});
+
+	it("keeps the original settings list when lite mode is disabled", () => {
+		process.env.OMP_LITE_RENDER_TEST = "1";
+		settings.set("liteMode", false);
+		const comp = createSelector();
+
+		const rendered = stripAnsi(comp.render(70).join("\n"));
+		expect(rendered).toContain("Symbol Preset");
+		expect(rendered).not.toContain("Advanced Settings");
+	});
+
 	it("reveals condition-gated Hindsight rows the moment memory.backend changes via the submenu", () => {
 		settings.set("memory.backend", "off");
 		const comp = createSelector();
@@ -116,12 +158,11 @@ describe("SettingsSelectorComponent memory tab", () => {
 
 		// Typing starts the cross-tab search: banner shows the query and matches.
 		comp.handleInput("b");
-		const strip = (line: string): string => line.replace(/\x1b\[[0-9;]*m/g, "");
-		const searching = comp.render(120).map(strip).join("\n");
+		const searching = comp.render(120).map(stripAnsi).join("\n");
 		const banner =
 			comp
 				.render(120)
-				.map(strip)
+				.map(stripAnsi)
 				.find(line => /\d+ match/.test(line)) ?? "";
 		expect(banner).toContain(" b ");
 		expect(searching).toMatch(/\d+ match/);
@@ -139,8 +180,7 @@ describe("SettingsSelectorComponent memory tab", () => {
 		const comp = createSelector();
 		for (const ch of "image provider") comp.handleInput(ch);
 
-		const strip = (line: string): string => line.replace(/\x1b\[[0-9;]*m/g, "");
-		const rendered = comp.render(120).map(strip).join("\n");
+		const rendered = comp.render(120).map(stripAnsi).join("\n");
 		const providersIndex = rendered.indexOf("Providers");
 		const appearanceIndex = rendered.indexOf("Appearance");
 
@@ -155,11 +195,10 @@ describe("SettingsSelectorComponent memory tab", () => {
 
 	it("supports editor hotkeys in the global search bar", () => {
 		const comp = createSelector();
-		const strip = (line: string): string => line.replace(/\x1b\[[0-9;]*m/g, "");
 		const banner = (): string =>
 			comp
 				.render(120)
-				.map(strip)
+				.map(stripAnsi)
 				.find(line => /\d+ match/.test(line)) ?? "";
 
 		// alt+backspace deletes the trailing word from the query.

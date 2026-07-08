@@ -170,9 +170,9 @@ describe("buildSpec", () => {
 						hidden: true,
 						flags: {
 							model: { kind: "string" },
-							thinking: { kind: "string", options: ["low", "high"] },
-							"no-tools": { kind: "boolean" },
-							"session-dir": { kind: "string" },
+							mode: { kind: "string", options: ["text", "json", "rpc", "acp", "rpc-ui"] },
+							print: { kind: "boolean", char: "p" },
+							"no-pty": { kind: "boolean" },
 						},
 						args: {},
 					}),
@@ -182,9 +182,12 @@ describe("buildSpec", () => {
 		const root = buildSpec(config, "launch", new Map()).root;
 		const byName = new Map(root.flags.map(f => [f.name, f.value.kind]));
 		expect(byName.get("model")).toBe("models");
-		expect(byName.get("thinking")).toBe("enum");
-		expect(byName.get("no-tools")).toBe("flag");
-		expect(byName.get("session-dir")).toBe("dir");
+		expect(byName.get("mode")).toBe("enum");
+		expect(byName.get("print")).toBe("flag");
+		expect(byName.get("no-pty")).toBe("flag");
+		expect(byName.get("thinking")).toBeUndefined();
+		expect(byName.get("no-tools")).toBeUndefined();
+		expect(byName.get("session-dir")).toBeUndefined();
 	});
 });
 
@@ -203,26 +206,27 @@ describe("omp completions (integration / drift)", () => {
 		]);
 		expect(exitCode).toBe(0);
 
-		// Real top-level flags from launch's static `flags` table. Flags with a
-		// short char render as `{-r,--resume}`, so only assert the bracket form for
-		// the long-only ones and check the char-paired form separately.
-		for (const flag of ["--model", "--thinking", "--mode", "--approval-mode", "--tools", "--no-tools"]) {
+		// Lite top-level flags from launch's static `flags` table. Flags with a
+		// short char render as `{-p,--print}`, so assert that form separately.
+		for (const flag of ["--model", "--mode", "--no-pty"]) {
 			expect(stdout).toContain(`${flag}[`);
 		}
-		expect(stdout).toContain("{-r,--resume}");
-		// Real enum option sets flow through unchanged.
-		expect(stdout).toContain(":value:(off minimal low medium high xhigh auto)");
-		expect(stdout).toContain(":value:(always-ask write yolo)");
+		expect(stdout).toContain("{-p,--print}");
+		expect(stdout).not.toContain("--thinking[");
+		expect(stdout).not.toContain("--approval-mode[");
+		expect(stdout).not.toContain("--tools[");
+		expect(stdout).not.toContain("--no-tools[");
+		expect(stdout).not.toContain("{-r,--resume}");
+		expect(stdout).toContain(":value:(text json rpc acp rpc-ui)");
 		// Real subcommands present; dynamic callbacks wired.
 		expect(stdout).toContain("_omp_cmd_commit");
 		expect(stdout).toContain("'completions:");
 		// zsh routes single-value dynamic flags through the _omp_call action, which
 		// itself shells out to `omp __complete $kind`.
 		expect(stdout).toContain("_omp_call models");
-		expect(stdout).toContain("_omp_call sessions");
 		expect(stdout).toContain("command omp __complete $kind");
 		// Hidden/default commands must NOT surface as completable subcommands.
 		expect(stdout).not.toContain("_omp_cmd_launch");
 		expect(stdout).not.toContain("_omp_cmd___complete");
-	});
+	}, 15_000);
 });

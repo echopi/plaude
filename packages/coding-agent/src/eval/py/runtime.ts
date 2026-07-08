@@ -254,9 +254,11 @@ export function enumeratePythonRuntimes(cwd: string, baseEnv: Record<string, str
 		});
 	}
 
-	const systemPath = $which("python") ?? $which("python3");
-	if (systemPath) {
-		push({ pythonPath: systemPath, env: { ...baseEnv } });
+	for (const bin of ["python3", "python"]) {
+		const systemPath = $which(bin);
+		if (systemPath) {
+			push({ pythonPath: systemPath, env: { ...baseEnv } });
+		}
 	}
 
 	return runtimes;

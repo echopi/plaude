@@ -10,6 +10,8 @@ import { Container, Markdown, Text } from "@oh-my-pi/pi-tui";
 import { formatNumber } from "@oh-my-pi/pi-utils";
 import { settings } from "../config/settings";
 import type { RenderResultOptions } from "../extensibility/custom-tools/types";
+import { renderLiteTaskResult } from "../lite/lite-task-renderer";
+import { isLiteRender } from "../lite/render-policy";
 import { formatContextUsage } from "../modes/components/status-line/context-thresholds";
 import { getMarkdownTheme, type Theme } from "../modes/theme/theme";
 import { stripGeneratedOutputNotice, stripRawOutputArtifactNotice } from "../tools/output-meta";
@@ -1463,6 +1465,10 @@ export function renderResult(
 	const agentLabel = args?.agent?.trim() || undefined;
 	const assignmentSection = createAssignmentSectionRenderer(args, theme);
 	const contextSection = createContextSectionRenderer(args, theme);
+
+	if (isLiteRender(options.expanded)) {
+		return renderLiteTaskResult(result, options, theme, args);
+	}
 
 	if (!details) {
 		const text = result.content.find(c => c.type === "text")?.text || "";

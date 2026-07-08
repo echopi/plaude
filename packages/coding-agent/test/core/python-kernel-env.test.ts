@@ -98,6 +98,24 @@ describe("enumeratePythonRuntimes", () => {
 		expect(resolvePythonRuntime(path.join(path.sep, "work"), {}).pythonPath).toBe(systemPy);
 	});
 
+	it("prefers python3 over python for the system interpreter", () => {
+		const python2 = path.join(path.sep, "usr", "local", "bin", "python");
+		vi.spyOn(piUtils, "getPythonEnvDir").mockReturnValue(managedDir);
+		vi.spyOn(piUtils, "$which").mockImplementation(bin => {
+			if (bin === "python3") return systemPy;
+			if (bin === "python") return python2;
+			return null;
+		});
+		vi.spyOn(fs, "existsSync").mockReturnValue(false);
+
+		const runtimes = enumeratePythonRuntimes(path.join(path.sep, "work"), {
+			PATH: path.join(path.sep, "usr", "bin"),
+		});
+
+		expect(runtimes.map(r => r.pythonPath)).toEqual([systemPy, python2]);
+		expect(resolvePythonRuntime(path.join(path.sep, "work"), {}).pythonPath).toBe(systemPy);
+	});
+
 	it("resolves an explicit interpreter without falling through to discovery", () => {
 		vi.spyOn(piUtils, "getPythonEnvDir").mockReturnValue(managedDir);
 		vi.spyOn(piUtils, "$which").mockImplementation(bin => (bin === "python" ? systemPy : null));

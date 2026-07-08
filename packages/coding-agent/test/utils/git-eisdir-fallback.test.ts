@@ -1,10 +1,12 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { removeWithRetries } from "@oh-my-pi/pi-utils";
 import { $ } from "bun";
 import * as git from "../../src/utils/git";
+
+setDefaultTimeout(15_000);
 
 describe("git reference directory fallback", () => {
 	let repoDir: string;

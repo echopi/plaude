@@ -24,7 +24,7 @@ import type {
 	OAuthProviderId,
 } from "./registry/oauth/types";
 import { getEnvApiKey, getEnvApiKeyName } from "./stream";
-import type { Provider } from "./types";
+import type { FetchImpl, Provider } from "./types";
 import type {
 	CredentialRankingContext,
 	CredentialRankingStrategy,
@@ -56,6 +56,7 @@ import {
 } from "./usage/openai-codex-reset";
 import { opencodeGoUsageProvider } from "./usage/opencode-go";
 import { zaiUsageProvider } from "./usage/zai";
+import { wrapFetchForProxy } from "./utils/proxy";
 
 const USAGE_RANKING_METRIC_EPSILON = 1e-9;
 
@@ -456,7 +457,7 @@ export interface CredentialDisabledEvent {
 export type AuthStorageOptions = {
 	usageProviderResolver?: (provider: Provider) => UsageProvider | undefined;
 	rankingStrategyResolver?: (provider: Provider) => CredentialRankingStrategy | undefined;
-	usageFetch?: typeof fetch;
+	usageFetch?: FetchImpl;
 	usageRequestTimeoutMs?: number;
 	usageLogger?: UsageLogger;
 	/**
@@ -970,7 +971,7 @@ export class AuthStorage {
 	#usageRequestInFlight: Map<string, Promise<UsageReport | null>> = new Map();
 	#usageHeaderIngestAt: Map<string, number> = new Map();
 	#usageReportsInFlight: Map<string, Promise<UsageReport[] | null>> = new Map();
-	#usageFetch: typeof fetch;
+	#usageFetch: FetchImpl;
 	#usageRequestTimeoutMs: number;
 	#usageLogger?: UsageLogger;
 	#fallbackResolver?: (provider: string) => string | undefined;
@@ -1014,7 +1015,7 @@ export class AuthStorage {
 		} catch {
 			// Best-effort.
 		}
-		this.#usageFetch = options.usageFetch ?? fetch;
+		this.#usageFetch = options.usageFetch ?? (fetch as FetchImpl);
 		this.#usageRequestTimeoutMs = options.usageRequestTimeoutMs ?? DEFAULT_USAGE_REQUEST_TIMEOUT_MS;
 		this.#refreshOAuthCredentialOverride = options.refreshOAuthCredential;
 		this.#fetchUsageReportsOverride = options.fetchUsageReports;
@@ -1040,6 +1041,10 @@ export class AuthStorage {
 	static async create(dbPath: string, options: AuthStorageOptions = {}): Promise<AuthStorage> {
 		const store = await SqliteAuthCredentialStore.open(dbPath);
 		return new AuthStorage(store, options);
+	}
+
+	#getUsageFetch(provider: string): FetchImpl {
+		return wrapFetchForProxy(this.#usageFetch, provider);
 	}
 
 	/**
@@ -2311,7 +2316,7 @@ export class AuthStorage {
 
 		try {
 			return await providerImpl.fetchUsage(params, {
-				fetch: this.#usageFetch,
+				fetch: this.#getUsageFetch(request.provider),
 				logger: this.#usageLogger,
 				listUsageCosts: query => this.#store.listUsageCosts?.(query) ?? [],
 			});
@@ -2902,11 +2907,6 @@ export class AuthStorage {
 		const timeoutMs = options?.timeoutMs ?? this.#usageRequestTimeoutMs;
 		const completionProbe = options?.completionProbe;
 		const completionTimeoutMs = options?.completionTimeoutMs ?? timeoutMs;
-		const ctx: UsageFetchContext = {
-			fetch: this.#usageFetch,
-			logger: this.#usageLogger,
-			listUsageCosts: query => this.#store.listUsageCosts?.(query) ?? [],
-		};
 
 		const results: CredentialHealthResult[] = [];
 		for (const row of stored) {
@@ -2995,6 +2995,11 @@ export class AuthStorage {
 				base.reason = `usage probe for ${row.provider} does not validate credentials`;
 			} else {
 				try {
+					const ctx: UsageFetchContext = {
+						fetch: this.#getUsageFetch(row.provider),
+						logger: this.#usageLogger,
+						listUsageCosts: query => this.#store.listUsageCosts?.(query) ?? [],
+					};
 					const report = await providerImpl.fetchUsage(params, ctx);
 					if (report === null) {
 						base.reason = "usage probe returned no data for this credential";
@@ -4178,7 +4183,7 @@ export class AuthStorage {
 					accessToken: access.accessToken,
 					accountId: access.accountId,
 					baseUrl,
-					fetch: this.#usageFetch,
+					fetch: this.#getUsageFetch(provider),
 					signal: options?.signal,
 				});
 				if (!list) return { ...base, availableCount: 0, credits: [], error: "Failed to load saved resets" };
@@ -4224,7 +4229,7 @@ export class AuthStorage {
 				accessToken: match.accessToken,
 				accountId: match.accountId,
 				baseUrl,
-				fetch: this.#usageFetch,
+				fetch: this.#getUsageFetch(provider),
 				signal: options.signal,
 			});
 			const credit = list?.credits.find(entry => (entry.status ?? "available") === "available") ?? list?.credits[0];
@@ -4237,7 +4242,7 @@ export class AuthStorage {
 			accessToken: match.accessToken,
 			accountId: match.accountId,
 			baseUrl,
-			fetch: this.#usageFetch,
+			fetch: this.#getUsageFetch(provider),
 			signal: options.signal,
 		});
 		if (result.ok) {
