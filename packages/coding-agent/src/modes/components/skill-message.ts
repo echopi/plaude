@@ -1,6 +1,7 @@
 import type { TextContent } from "@oh-my-pi/pi-ai";
 import type { Component } from "@oh-my-pi/pi-tui";
 import { Box, Container, Markdown, Spacer, Text } from "@oh-my-pi/pi-tui";
+import { useClaudeStatusLine } from "../../lite/render-policy";
 import { getMarkdownTheme, theme } from "../../modes/theme/theme";
 import type { CustomMessage, SkillPromptDetails } from "../../session/messages";
 import { shortenPath } from "../../tools/render-utils";
@@ -14,7 +15,11 @@ export class SkillMessageComponent extends Container {
 	constructor(private readonly message: CustomMessage<SkillPromptDetails>) {
 		super();
 
-		this.#box = new Box(1, 1, t => theme.bg("customMessageBg", t));
+		this.#box = new Box(
+			useClaudeStatusLine() ? 2 : 1,
+			useClaudeStatusLine() ? 0 : 1,
+			useClaudeStatusLine() ? undefined : t => theme.bg("customMessageBg", t),
+		);
 		this.#box.setIgnoreTight(true);
 		this.#rebuild();
 	}
@@ -40,8 +45,10 @@ export class SkillMessageComponent extends Container {
 		this.removeChild(this.#box);
 		this.addChild(this.#box);
 		this.#box.clear();
-		// Re-read symbols every rebuild so a runtime theme/preset switch refreshes the outline.
-		this.#box.setBorder({ chars: theme.boxRound, color: t => theme.fg("borderMuted", t) });
+		// Re-read symbols every rebuild so runtime theme/preset switches refresh the frame style.
+		this.#box.setBorder(
+			useClaudeStatusLine() ? undefined : { chars: theme.boxRound, color: t => theme.fg("borderMuted", t) },
+		);
 
 		const details = this.message.details;
 		const name = details?.name?.trim() || "unknown";

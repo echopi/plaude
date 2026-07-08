@@ -1,4 +1,5 @@
 import { Box, type Component, Markdown } from "@oh-my-pi/pi-tui";
+import { useClaudeStatusLine } from "../../lite/render-policy";
 import { getMarkdownTheme, theme } from "../../modes/theme/theme";
 import type { BranchSummaryMessage, CompactionSummaryMessage, CustomMessage } from "../../session/messages";
 
@@ -61,7 +62,11 @@ class SummaryDividerComponent implements Component {
 
 	#detailBox(): Box {
 		if (this.#detail) return this.#detail;
-		const box = new Box(1, 1, t => theme.bg("customMessageBg", t));
+		const box = new Box(
+			useClaudeStatusLine() ? 2 : 1,
+			useClaudeStatusLine() ? 0 : 1,
+			useClaudeStatusLine() ? undefined : t => theme.bg("customMessageBg", t),
+		);
 		box.setIgnoreTight(true);
 		box.addChild(
 			new Markdown(this.options.detailMarkdown(), 0, 0, getMarkdownTheme(), {

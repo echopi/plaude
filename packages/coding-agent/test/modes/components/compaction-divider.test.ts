@@ -6,7 +6,7 @@
  * components return the identical array so containers can memoize.
  */
 
-import { beforeAll, describe, expect, it } from "bun:test";
+import { afterEach, beforeAll, describe, expect, it } from "bun:test";
 import { createCompactionSummaryMessage } from "@oh-my-pi/pi-agent-core/compaction";
 import type { ImageContent } from "@oh-my-pi/pi-ai";
 import { CompactionSummaryMessageComponent } from "@oh-my-pi/pi-coding-agent/modes/components/compaction-summary-message";
@@ -25,6 +25,16 @@ function makeComponent(images?: ImageContent[]): CompactionSummaryMessageCompone
 }
 
 describe("CompactionSummaryMessageComponent", () => {
+	const originalPlaudeStatuslineStyle = process.env.PLAUDE_STATUSLINE_STYLE;
+
+	afterEach(() => {
+		if (originalPlaudeStatuslineStyle === undefined) {
+			delete process.env.PLAUDE_STATUSLINE_STYLE;
+		} else {
+			process.env.PLAUDE_STATUSLINE_STYLE = originalPlaudeStatuslineStyle;
+		}
+	});
+
 	it("collapsed: a single full-width divider carrying the expand affordance", () => {
 		const lines = makeComponent().render(80);
 		expect(lines.length).toBe(3); // breathing room above and below the rule
@@ -44,6 +54,18 @@ describe("CompactionSummaryMessageComponent", () => {
 		expect(text).toContain(SUMMARY);
 		expect(text).toContain("tokens");
 		expect(text).toContain("1 snapcompact frame attached");
+	});
+
+	it("expanded: uses lightweight detail text in Claude-style rendering", () => {
+		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+		const component = makeComponent();
+		component.setExpanded(true);
+
+		const raw = component.render(80).join("\n");
+		const visible = Bun.stripANSI(raw);
+
+		expect(raw).not.toContain("\x1b[48");
+		expect(visible).toContain("  Earlier the user fixed the login TTL bug.");
 	});
 
 	it("degrades to a bare label when the viewport is too narrow for a framed rule", () => {

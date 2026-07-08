@@ -1,5 +1,6 @@
 import { Box, Container, Spacer, Text } from "@oh-my-pi/pi-tui";
 import type { Rule } from "../../capability/rule";
+import { useClaudeStatusLine } from "../../lite/render-policy";
 import { theme } from "../../modes/theme/theme";
 
 /** Collapsed view shows at most this many rules before eliding the rest. */
@@ -51,6 +52,62 @@ export class TtsrNotificationComponent extends Container {
 
 	isExpanded(): boolean {
 		return this.#expanded;
+	}
+
+	override render(width: number): readonly string[] {
+		if (!useClaudeStatusLine()) return super.render(width);
+
+		const block = new Container();
+		block.addChild(new Spacer(1));
+		block.addChild(new Text(this.#renderClaudeText(), 2, 0).setIgnoreTight(true));
+		return block.render(width);
+	}
+
+	#renderClaudeText(): string {
+		if (this.#rules.length === 1) {
+			const rule = this.#rules[0]!;
+			const lines = [theme.fg("warning", `${theme.icon.warning} Injecting rule: ${theme.bold(rule.name)}`)];
+			const desc = (rule.description || rule.content)?.trim();
+			if (desc) {
+				let displayText = desc;
+				if (!this.#expanded) {
+					const descLines = desc.split("\n");
+					if (descLines.length > 2) {
+						displayText = `${descLines.slice(0, 2).join("\n")}…`;
+					}
+				}
+				lines.push("", theme.italic(displayText));
+			}
+			return lines.join("\n");
+		}
+
+		const lines = [theme.fg("warning", `${theme.icon.warning} Injecting ${this.#rules.length} rules`), ""];
+		const visible = this.#expanded ? this.#rules : this.#rules.slice(0, MAX_COLLAPSED_RULES);
+		let elidedDetail = false;
+		for (const rule of visible) {
+			const desc = (rule.description || rule.content)?.trim();
+			let line = theme.bold(rule.name);
+			if (desc) {
+				let displayText = desc;
+				if (!this.#expanded) {
+					const newline = desc.indexOf("\n");
+					if (newline !== -1) {
+						displayText = `${desc.slice(0, newline).trimEnd()}…`;
+						elidedDetail = true;
+					}
+				}
+				line += `: ${theme.italic(displayText)}`;
+			}
+			lines.push(`  ${line}`);
+		}
+
+		const hidden = this.#rules.length - visible.length;
+		if (hidden > 0) {
+			lines.push(theme.italic(`… +${hidden} more (ctrl+o to expand)`));
+		} else if (elidedDetail) {
+			lines.push(theme.italic("(ctrl+o to expand)"));
+		}
+		return lines.join("\n");
 	}
 
 	#rebuild(): void {
