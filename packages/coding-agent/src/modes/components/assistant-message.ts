@@ -4,6 +4,7 @@ import { formatNumber } from "@oh-my-pi/pi-utils";
 import chalk from "chalk";
 import type { AssistantThinkingRenderer } from "../../extensibility/extensions/types";
 import { getLiteMarkdownTheme } from "../../lite/lite-markdown-theme";
+import { useClaudeStatusLine } from "../../lite/render-policy";
 import { theme } from "../../modes/theme/theme";
 import { getPreviewLines, resolveImageOptions, TRUNCATE_LENGTHS } from "../../tools/render-utils";
 import { canonicalizeMessage, formatThinkingForDisplay, hasDisplayableThinking } from "../../utils/thinking-display";
@@ -18,6 +19,7 @@ import { type CacheInvalidation, CacheInvalidationMarkerComponent } from "./cach
  * the persisted session.
  */
 const MAX_TRANSCRIPT_ERROR_LINES = 8;
+const CLAUDE_TRANSCRIPT_GUTTER = " ";
 
 /** Opening or closing fence of a code block: ≥3 backticks/tildes plus info string. */
 const CODE_FENCE_LINE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
@@ -288,8 +290,11 @@ export class AssistantMessageComponent extends Container {
 	}
 
 	override render(width: number): readonly string[] {
-		this.#lastRenderWidth = width;
-		return super.render(width);
+		const gutter = useClaudeStatusLine() && width > CLAUDE_TRANSCRIPT_GUTTER.length ? CLAUDE_TRANSCRIPT_GUTTER : "";
+		const renderWidth = Math.max(1, width - gutter.length);
+		this.#lastRenderWidth = renderWidth;
+		const lines = super.render(renderWidth);
+		return gutter ? lines.map(line => `${gutter}${line}`) : lines;
 	}
 
 	setHideThinkingBlock(hide: boolean): void {
