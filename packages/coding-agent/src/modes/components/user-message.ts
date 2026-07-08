@@ -70,9 +70,8 @@ export class UserMessageComponent extends Container {
 	}
 
 	#renderClaudeStyle(width: number): readonly string[] {
-		const contentWidth = Math.max(1, width - 2);
+		const contentWidth = Math.max(1, width);
 		const lines = this.children[0]?.render(contentWidth) ?? [];
-		const prompt = `${theme.fg("accent", "❯")} `;
-		return lines.map((line, index) => truncateToWidth(`${index === 0 ? prompt : "  "}${line}`, width));
+		return lines.map(line => truncateToWidth(line, width));
 	}
 }

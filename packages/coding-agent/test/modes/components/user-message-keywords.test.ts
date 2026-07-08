@@ -63,7 +63,8 @@ describe("UserMessageComponent magic-keyword highlighting", () => {
 			const raw = render("hi");
 			const visible = Bun.stripANSI(raw);
 
-			expect(visible).toContain("❯ hi");
+			expect(visible).toContain("hi");
+			expect(visible).not.toContain("❯ hi");
 			expect(raw).not.toContain(theme.getBgAnsi("userMessageBg"));
 		} finally {
 			if (previous === undefined) {
