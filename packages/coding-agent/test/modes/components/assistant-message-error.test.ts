@@ -172,8 +172,9 @@ describe("AssistantMessageComponent Claude-style transcript gutter", () => {
 		expect(rendered).toContain("✅ 已建");
 		expect(rendered).not.toContain("+---");
 		expect(rendered).not.toContain("| 产品");
+		expect(lines.some(line => line.includes("产品") && line.includes("状态"))).toBe(true);
 		expect(lines.some(line => line.includes("project.aone.alibaba-inc.com") && line.includes("✅ 已建"))).toBe(false);
-		expect(lines.some(line => line.trim() === "✅ 已建")).toBe(true);
+		expect(lines.some(line => line.includes("Aone") && line.includes("✅ 已建"))).toBe(true);
 	});
 });
 

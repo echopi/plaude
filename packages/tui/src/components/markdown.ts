@@ -2126,7 +2126,7 @@ export class Markdown implements Component {
 			...token.rows.map(row => row.map(cell => this.#renderInlineTokens(cell.tokens || [], styleContext))),
 		];
 		if (numCols === 2) {
-			const lines = this.#renderCompactTwoColumnPlainTable(rows, availableWidth);
+			const lines = this.#renderReadableTwoColumnPlainTable(rows, availableWidth);
 			if (nextTokenType && nextTokenType !== "space") lines.push("");
 			return lines;
 		}
@@ -2157,29 +2157,42 @@ export class Markdown implements Component {
 		return lines;
 	}
 
-	#renderCompactTwoColumnPlainTable(rows: string[][], availableWidth: number): string[] {
+	#renderReadableTwoColumnPlainTable(rows: string[][], availableWidth: number): string[] {
 		const lines: string[] = [];
-		const compactWidth = Math.max(24, Math.min(availableWidth, 72));
+		const gap = 2;
+		const minLeftWidth = 16;
+		const rightCells = rows.map(row => row[1] ?? "");
+		const rightNaturalWidth = Math.max(...rightCells.map(cell => visibleWidth(cell)), 0);
+		const rightWidth = Math.min(Math.max(rightNaturalWidth, 8), Math.max(8, Math.floor(availableWidth * 0.36)));
+		const leftNaturalWidth = Math.max(...rows.map(row => visibleWidth(row[0] ?? "")), 0);
+		const leftAvailableWidth = Math.max(minLeftWidth, availableWidth - gap - rightWidth);
+		const leftWidth = Math.max(minLeftWidth, Math.min(leftNaturalWidth, leftAvailableWidth, 72));
 		const bodyRows = rows.slice(1);
 		const header = rows[0] ?? [];
+
+		const renderLine = (left: string, right: string, style: (text: string) => string = text => text): string => {
+			const paddedLeft = left + padding(Math.max(0, leftWidth - visibleWidth(left)));
+			return right ? `${style(paddedLeft)}${padding(gap)}${style(right)}`.trimEnd() : style(left).trimEnd();
+		};
+
 		if (header.length > 0) {
-			lines.push(header.map(cell => this.#theme.bold(cell)).join("  "));
+			lines.push(renderLine(header[0] ?? "", header[1] ?? "", text => this.#theme.bold(text)));
+			lines.push(
+				renderLine(
+					"─".repeat(Math.max(visibleWidth(header[0] ?? ""), 4)),
+					"─".repeat(Math.max(visibleWidth(header[1] ?? ""), 4)),
+				),
+			);
 		}
 
 		for (const row of bodyRows) {
 			const left = row[0] ?? "";
 			const right = row[1] ?? "";
-			const joined = right ? `${left}  ${right}` : left;
-			if (visibleWidth(joined) <= compactWidth) {
-				lines.push(joined);
-				continue;
-			}
-
-			lines.push(...wrapTextWithAnsi(left, availableWidth));
-			if (right) {
-				for (const statusLine of wrapTextWithAnsi(right, Math.max(1, availableWidth - 2))) {
-					lines.push(`  ${statusLine}`);
-				}
+			const leftLines = this.#wrapCellText(left, leftWidth);
+			const rightLines = this.#wrapCellText(right, rightWidth);
+			const lineCount = Math.max(leftLines.length, rightLines.length, 1);
+			for (let lineIdx = 0; lineIdx < lineCount; lineIdx++) {
+				lines.push(renderLine(leftLines[lineIdx] ?? "", rightLines[lineIdx] ?? ""));
 			}
 		}
 		return lines;
