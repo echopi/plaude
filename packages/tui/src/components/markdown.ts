@@ -2125,6 +2125,12 @@ export class Markdown implements Component {
 			token.header.map(cell => this.#renderInlineTokens(cell.tokens || [], styleContext)),
 			...token.rows.map(row => row.map(cell => this.#renderInlineTokens(cell.tokens || [], styleContext))),
 		];
+		if (numCols === 2) {
+			const lines = this.#renderCompactTwoColumnPlainTable(rows, availableWidth);
+			if (nextTokenType && nextTokenType !== "space") lines.push("");
+			return lines;
+		}
+
 		const columnWidths = this.#tableColumnWidths(rows, availableForCells);
 
 		const renderRow = (row: string[], style: (text: string) => string): string[] => {
@@ -2148,6 +2154,34 @@ export class Markdown implements Component {
 			lines.push(...renderRow(row, text => text));
 		}
 		if (nextTokenType && nextTokenType !== "space") lines.push("");
+		return lines;
+	}
+
+	#renderCompactTwoColumnPlainTable(rows: string[][], availableWidth: number): string[] {
+		const lines: string[] = [];
+		const compactWidth = Math.max(24, Math.min(availableWidth, 72));
+		const bodyRows = rows.slice(1);
+		const header = rows[0] ?? [];
+		if (header.length > 0) {
+			lines.push(header.map(cell => this.#theme.bold(cell)).join("  "));
+		}
+
+		for (const row of bodyRows) {
+			const left = row[0] ?? "";
+			const right = row[1] ?? "";
+			const joined = right ? `${left}  ${right}` : left;
+			if (visibleWidth(joined) <= compactWidth) {
+				lines.push(joined);
+				continue;
+			}
+
+			lines.push(...wrapTextWithAnsi(left, availableWidth));
+			if (right) {
+				for (const statusLine of wrapTextWithAnsi(right, Math.max(1, availableWidth - 2))) {
+					lines.push(`  ${statusLine}`);
+				}
+			}
+		}
 		return lines;
 	}
 
