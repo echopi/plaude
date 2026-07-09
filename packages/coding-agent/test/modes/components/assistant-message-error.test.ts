@@ -150,7 +150,7 @@ describe("AssistantMessageComponent Claude-style transcript gutter", () => {
 		expect(lines.some(line => line.startsWith("  Error: unable to get local issuer certificate"))).toBe(true);
 	});
 
-	it("renders assistant markdown tables without heavy grid borders", () => {
+	it("renders two-column assistant markdown tables as status lists", () => {
 		const lines = withClaudeStyle(() =>
 			renderLines(
 				textMessage(
@@ -161,20 +161,45 @@ describe("AssistantMessageComponent Claude-style transcript gutter", () => {
 						"| --- | --- |",
 						"| Aone #84082937 (https://project.aone.alibaba-inc.com/v2/project/1079779/task/84082937) | ✅ 已建 |",
 						"| Gerrit CL 189267 (http://gerrit.effirst.com:8080/189267) | ✅ 干净 |",
+						"| CL 189266 | abandoned (eval gitlink 污染) |",
 					].join("\n"),
 				),
 			),
 		);
 		const rendered = lines.join("\n");
-		expect(rendered).toContain("产品");
 		expect(rendered).toContain("Aone");
 		expect(rendered).toContain("84082937");
-		expect(rendered).toContain("✅ 已建");
+		expect(rendered).toContain("已建");
+		expect(rendered).not.toContain("产品");
+		expect(lines.some(line => line.includes("产品") && line.includes("状态"))).toBe(false);
 		expect(rendered).not.toContain("+---");
 		expect(rendered).not.toContain("| 产品");
-		expect(lines.some(line => line.includes("产品") && line.includes("状态"))).toBe(true);
-		expect(lines.some(line => line.includes("project.aone.alibaba-inc.com") && line.includes("✅ 已建"))).toBe(false);
-		expect(lines.some(line => line.includes("Aone") && line.includes("✅ 已建"))).toBe(true);
+		expect(rendered).not.toContain("project.aone.alibaba-inc.com");
+		expect(rendered).not.toContain("gerrit.effirst.com");
+		expect(lines.some(line => line.includes("✅ Aone") && line.includes("已建"))).toBe(true);
+		expect(lines.some(line => line.includes("✅ Gerrit CL 189267") && line.includes("干净"))).toBe(true);
+		expect(lines.some(line => line.includes("├ — CL 189266 abandoned"))).toBe(true);
+	});
+
+	it("keeps multi-column assistant markdown tables compact while hiding link URLs", () => {
+		const lines = withClaudeStyle(() =>
+			renderLines(
+				textMessage(
+					[
+						"| 产品 | 状态 | 负责人 |",
+						"| --- | --- | --- |",
+						"| Gerrit [CL 189267](http://gerrit.effirst.com:8080/189267) | ✅ 干净 | [Alice](https://example.com/alice) |",
+					].join("\n"),
+				),
+			),
+		);
+		const rendered = lines.join("\n");
+		expect(lines.some(line => line.includes("产品") && line.includes("状态") && line.includes("负责人"))).toBe(true);
+		expect(rendered).toContain("Gerrit");
+		expect(rendered).toContain("CL 189267");
+		expect(rendered).toContain("Alice");
+		expect(rendered).not.toContain("gerrit.effirst.com");
+		expect(rendered).not.toContain("example.com");
 	});
 });
 

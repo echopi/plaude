@@ -2122,11 +2122,11 @@ export class Markdown implements Component {
 		}
 
 		const rows = [
-			token.header.map(cell => this.#renderInlineTokens(cell.tokens || [], styleContext)),
-			...token.rows.map(row => row.map(cell => this.#renderInlineTokens(cell.tokens || [], styleContext))),
+			token.header.map(cell => this.#renderPlainTableCell(cell, styleContext)),
+			...token.rows.map(row => row.map(cell => this.#renderPlainTableCell(cell, styleContext))),
 		];
 		if (numCols === 2) {
-			const lines = this.#renderReadableTwoColumnPlainTable(rows, availableWidth);
+			const lines = this.#renderStatusListFromTwoColumnTable(rows, availableWidth);
 			if (nextTokenType && nextTokenType !== "space") lines.push("");
 			return lines;
 		}
@@ -2157,45 +2157,96 @@ export class Markdown implements Component {
 		return lines;
 	}
 
-	#renderReadableTwoColumnPlainTable(rows: string[][], availableWidth: number): string[] {
-		const lines: string[] = [];
-		const gap = 2;
-		const minLeftWidth = 16;
-		const rightCells = rows.map(row => row[1] ?? "");
-		const rightNaturalWidth = Math.max(...rightCells.map(cell => visibleWidth(cell)), 0);
-		const rightWidth = Math.min(Math.max(rightNaturalWidth, 8), Math.max(8, Math.floor(availableWidth * 0.36)));
-		const leftNaturalWidth = Math.max(...rows.map(row => visibleWidth(row[0] ?? "")), 0);
-		const leftAvailableWidth = Math.max(minLeftWidth, availableWidth - gap - rightWidth);
-		const leftWidth = Math.max(minLeftWidth, Math.min(leftNaturalWidth, leftAvailableWidth, 72));
-		const bodyRows = rows.slice(1);
-		const header = rows[0] ?? [];
+	#renderPlainTableCell(cell: TableCellToken, styleContext?: InlineStyleContext): string {
+		return this.#renderPlainInlineTokens(cell.tokens || [], styleContext);
+	}
 
-		const renderLine = (left: string, right: string, style: (text: string) => string = text => text): string => {
-			const paddedLeft = left + padding(Math.max(0, leftWidth - visibleWidth(left)));
-			return right ? `${style(paddedLeft)}${padding(gap)}${style(right)}`.trimEnd() : style(left).trimEnd();
-		};
+	#renderPlainInlineTokens(tokens: Token[], styleContext?: InlineStyleContext): string {
+		let result = "";
+		const resolvedStyleContext = styleContext ?? this.#getDefaultInlineStyleContext();
+		const collapsed = collapseInlineHtml(tokens);
+		for (let i = 0; i < collapsed.length; i++) {
+			const token = collapsed[i] as Token & { href?: string; text?: string; tokens?: Token[] };
+			const next = collapsed[i + 1] as (Token & { href?: string; text?: string; tokens?: Token[] }) | undefined;
+			const afterNext = collapsed[i + 2] as (Token & { text?: string }) | undefined;
+			if (token.type === "text" && next?.type === "link" && afterNext?.type === "text") {
+				const text = token.text ?? "";
+				const closing = afterNext.text ?? "";
+				if (text.trimEnd().endsWith("(") && closing.startsWith(")") && next.href) {
+					const label = text.replace(/\s*\($/, "").trimEnd();
+					if (label) {
+						const renderedLabel = this.#renderInlineTokens(
+							[{ ...token, raw: label, text: label }],
+							resolvedStyleContext,
+						);
+						result += formatHyperlink(this.#theme.link(this.#theme.underline(renderedLabel)), next.href);
+						const trailing = closing.slice(1);
+						if (trailing)
+							result += this.#renderInlineTokens(
+								[{ ...afterNext, raw: trailing, text: trailing }],
+								resolvedStyleContext,
+							);
+						i += 2;
+						continue;
+					}
+				}
+			}
 
-		if (header.length > 0) {
-			lines.push(renderLine(header[0] ?? "", header[1] ?? "", text => this.#theme.bold(text)));
-			lines.push(
-				renderLine(
-					"─".repeat(Math.max(visibleWidth(header[0] ?? ""), 4)),
-					"─".repeat(Math.max(visibleWidth(header[1] ?? ""), 4)),
-				),
-			);
+			if (token.type === "link" && token.href) {
+				const href = token.href;
+				const label = this.#plainTableLinkLabel({ ...token, href }, resolvedStyleContext);
+				result += formatHyperlink(this.#theme.link(this.#theme.underline(label)), href);
+				continue;
+			}
+
+			result += this.#renderInlineTokens([token], resolvedStyleContext);
 		}
+		return result;
+	}
+
+	#plainTableLinkLabel(
+		token: Token & { href: string; text?: string; tokens?: Token[] },
+		styleContext: InlineStyleContext,
+	): string {
+		const hrefForComparison = token.href.startsWith("mailto:") ? token.href.slice(7) : token.href;
+		if (token.text && token.text !== token.href && token.text !== hrefForComparison) {
+			return this.#renderPlainInlineTokens(token.tokens || [], styleContext);
+		}
+		try {
+			const url = new URL(token.href);
+			return url.hostname || "link";
+		} catch (_) {
+			return token.text || "link";
+		}
+	}
+
+	#renderStatusListFromTwoColumnTable(rows: string[][], availableWidth: number): string[] {
+		const lines: string[] = [];
+		const bodyRows = rows.slice(1);
+		let previousWasCl = false;
 
 		for (const row of bodyRows) {
 			const left = row[0] ?? "";
 			const right = row[1] ?? "";
-			const leftLines = this.#wrapCellText(left, leftWidth);
-			const rightLines = this.#wrapCellText(right, rightWidth);
-			const lineCount = Math.max(leftLines.length, rightLines.length, 1);
-			for (let lineIdx = 0; lineIdx < lineCount; lineIdx++) {
-				lines.push(renderLine(leftLines[lineIdx] ?? "", rightLines[lineIdx] ?? ""));
-			}
+			const plainLeft = Bun.stripANSI(left);
+			const childOfPreviousCl = previousWasCl && /^CL\s+\d+\b/.test(plainLeft);
+			const marker = childOfPreviousCl ? "  ├ " : "";
+			const { icon, text } = this.#statusListPrefix(right);
+			const line = `${marker}${icon} ${left}${text ? ` ${text}` : ""}`.trimEnd();
+			lines.push(...wrapTextWithAnsi(line, availableWidth));
+			previousWasCl = /\bCL\s+\d+\b/.test(plainLeft);
 		}
 		return lines;
+	}
+
+	#statusListPrefix(status: string): { icon: string; text: string } {
+		const trimmed = status.trim();
+		const statusMatch = /^(✅|⚠️|⚠|—|-|❌|✖|⏳|…)\s*(.*)$/u.exec(trimmed);
+		if (statusMatch) {
+			const icon = statusMatch[1] === "-" ? "—" : statusMatch[1];
+			return { icon, text: statusMatch[2] ?? "" };
+		}
+		return { icon: "—", text: trimmed };
 	}
 
 	/**
