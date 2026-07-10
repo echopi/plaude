@@ -560,8 +560,8 @@ const NERD_SYMBOLS: SymbolMap = {
 	// pick:  | alt: │ ┃ |
 	"sep.pipe": "\ue0b3",
 	// Icons - Nerd Font specific
-	// pick:  | alt:   ◆
-	"icon.model": "\uec19",
+	// pick:  | alt:  ◆
+	"icon.model": "\uf120",
 	// pick:  | alt:  
 	"icon.plan": "\uf2d2",
 	"icon.prewalk": "\uf29d",
@@ -646,12 +646,13 @@ const NERD_SYMBOLS: SymbolMap = {
 	"icon.mic": "\uf130",
 	// Compaction divider - fa-camera-retro
 	"icon.camera": "\uf083",
-	// Thinking levels — increasing circle slices, with fire reserved for max.
-	"thinking.minimal": "\u{F0A9E} min",
-	"thinking.low": "\u{F0A9F} low",
-	"thinking.medium": "\u{F0AA1} med",
-	"thinking.high": "\u{F0AA3} high",
-	"thinking.xhigh": "\u{F0AA5} xhi",
+	// Thinking levels — Unicode circle slices avoid newer supplementary-PUA
+	// glyphs that older Nerd Font builds and some terminal renderers omit.
+	"thinking.minimal": "○ min",
+	"thinking.low": "◔ low",
+	"thinking.medium": "◑ med",
+	"thinking.high": "◒ high",
+	"thinking.xhigh": "◕ xhi",
 	"thinking.max": "\u{F06D} max",
 	// Auto mode uses shuffle until the model resolves its thinking level.
 	"thinking.autoPending": "\u{F074}",
