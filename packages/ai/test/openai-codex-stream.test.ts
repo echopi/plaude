@@ -978,6 +978,34 @@ describe("openai-codex streaming", () => {
 		expect(byName.get("older")?.arguments).toEqual({});
 	});
 
+	it("surfaces SSE idle watchdog aborts with the timeout reason", async () => {
+		const tempDir = TempDir.createSync("@pi-codex-stream-");
+		setAgentDir(tempDir.path());
+		const token = createCodexTestToken();
+		const context = createCodexTestContext();
+		let transportSignal: AbortSignal | undefined;
+		const fetchMock: FetchImpl = (input: string | URL | Request, init?: RequestInit) => {
+			transportSignal = getRequestSignal(input, init);
+			return Promise.resolve(createNoProgressCodexSse(transportSignal));
+		};
+
+		const model = { ...createCodexTestModel("https://chatgpt.com/backend-api"), preferWebsockets: false };
+		const result = await streamOpenAICodexResponses(model, context, {
+			fetch: fetchMock as FetchImpl,
+			apiKey: token,
+			streamIdleTimeoutMs: 20,
+			streamFirstEventTimeoutMs: 1_000,
+		}).result();
+
+		expect(result.stopReason).toBe("error");
+		expect(result.errorMessage).toBe("OpenAI Codex SSE stream stalled while waiting for the next event");
+		await Bun.sleep(0);
+		expect(transportSignal?.reason).toBeInstanceOf(Error);
+		if (!(transportSignal?.reason instanceof Error))
+			throw new Error("Expected the request signal to carry an Error reason");
+		expect(transportSignal.reason.message).toBe("OpenAI Codex SSE stream stalled while waiting for the next event");
+	});
+
 	it("waits for caller abort when SSE streams only no-progress status events", async () => {
 		const tempDir = TempDir.createSync("@pi-codex-stream-");
 		setAgentDir(tempDir.path());
