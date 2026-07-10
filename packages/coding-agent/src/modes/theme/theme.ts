@@ -556,8 +556,8 @@ const NERD_SYMBOLS: SymbolMap = {
 	// pick:  | alt: │ ┃ |
 	"sep.pipe": "\ue0b3",
 	// Icons - Nerd Font specific
-	// pick:  | alt:  ◆
-	"icon.model": "\uf120",
+	// pick:  | alt:   ◆
+	"icon.model": "\uec19",
 	// pick:  | alt:  
 	"icon.plan": "\uf2d2",
 	// pick:  (nf-fa-bullseye) | alt:  (nf-md-target) ◎ ⌖
@@ -579,16 +579,20 @@ const NERD_SYMBOLS: SymbolMap = {
 	"icon.git": "\uf1d3",
 	// pick:  | alt:  ⎇
 	"icon.branch": "\uf126",
-	// Classic Font Awesome stays compatible with older Nerd Font builds.
-	"icon.pr": "\uf126",
-	"icon.tokens": "\uf1c0",
-	"icon.context": "\uf03a",
+	// pick:  (nf-cod-git_pull_request) | alt:  (nf-oct-git_pull_request)
+	"icon.pr": "\uea64",
+	// pick:  | alt: ⊛ ◍ 
+	"icon.tokens": "\ue26b",
+	// pick:  | alt: ◫ ▦
+	"icon.context": "\ue70f",
 	// pick:  | alt: $ ¢
 	"icon.cost": "\uf155",
 	// pick:  | alt: ◷ ◴
 	"icon.time": "\uf017",
-	"icon.pi": "π",
-	"icon.ghost": "\uf21b",
+	// pick:  | alt: π ∏ ∑
+	"icon.pi": "\ue22c",
+	// pick: 󰊠 (nf-md-ghost) | alt: 👻
+	"icon.ghost": "\u{f02a0}",
 	// pick:  | alt: 
 	"icon.agents": "\uf0c0",
 	// pick:  (nf-fa-gear) | alt:  ⚙
@@ -605,13 +609,16 @@ const NERD_SYMBOLS: SymbolMap = {
 	"icon.throughput": "\uf0e4",
 	// pick:  | alt:  
 	"icon.host": "\uf109",
-	"icon.session": "\uf2bd",
-	"icon.package": "\uf1b2",
+	// pick:  | alt:  
+	"icon.session": "\uf550",
+	// pick:  | alt: 
+	"icon.package": "\uf487",
 	// pick:  | alt:  
 	"icon.warning": "\uf071",
 	// pick:  | alt:  ↺
 	"icon.rewind": "\uf0e2",
-	"icon.auto": "\uf074",
+	// pick: 󰁨 | alt:   
+	"icon.auto": "\u{f0068}",
 	"icon.fast": "\uf0e7",
 	"icon.extensionSkill": "\uf0eb",
 	// pick:  | alt:  
@@ -634,13 +641,12 @@ const NERD_SYMBOLS: SymbolMap = {
 	"icon.mic": "\uf130",
 	// Compaction divider - fa-camera-retro
 	"icon.camera": "\uf083",
-	// Thinking levels — Unicode circle slices avoid newer supplementary-PUA
-	// glyphs that older Nerd Font builds and some terminal renderers omit.
-	"thinking.minimal": "○ min",
-	"thinking.low": "◔ low",
-	"thinking.medium": "◑ med",
-	"thinking.high": "◒ high",
-	"thinking.xhigh": "◕ xhi",
+	// Thinking levels — increasing circle slices, with fire reserved for max.
+	"thinking.minimal": "\u{F0A9E} min",
+	"thinking.low": "\u{F0A9F} low",
+	"thinking.medium": "\u{F0AA1} med",
+	"thinking.high": "\u{F0AA3} high",
+	"thinking.xhigh": "\u{F0AA5} xhi",
 	"thinking.max": "\u{F06D} max",
 	// Auto mode uses shuffle until the model resolves its thinking level.
 	"thinking.autoPending": "\u{F074}",
@@ -673,80 +679,77 @@ const NERD_SYMBOLS: SymbolMap = {
 	"md.colorSwatch": "■",
 	// pick: ▎ | alt: ┃ │
 	"advisor.rail": "▎",
-	// Language logos vary widely across Nerd Font versions. The Unicode set is
-	// stable while the surrounding UI keeps its Nerd Font styling.
-	"lang.default": UNICODE_SYMBOLS["lang.default"],
-	"lang.typescript": UNICODE_SYMBOLS["lang.typescript"],
-	"lang.javascript": UNICODE_SYMBOLS["lang.javascript"],
-	"lang.python": UNICODE_SYMBOLS["lang.python"],
-	"lang.rust": UNICODE_SYMBOLS["lang.rust"],
-	"lang.go": UNICODE_SYMBOLS["lang.go"],
-	"lang.java": UNICODE_SYMBOLS["lang.java"],
-	"lang.c": UNICODE_SYMBOLS["lang.c"],
-	"lang.cpp": UNICODE_SYMBOLS["lang.cpp"],
-	"lang.csharp": UNICODE_SYMBOLS["lang.csharp"],
-	"lang.ruby": UNICODE_SYMBOLS["lang.ruby"],
-	"lang.julia": UNICODE_SYMBOLS["lang.julia"],
-	"lang.php": UNICODE_SYMBOLS["lang.php"],
-	"lang.swift": UNICODE_SYMBOLS["lang.swift"],
-	"lang.kotlin": UNICODE_SYMBOLS["lang.kotlin"],
-	"lang.shell": UNICODE_SYMBOLS["lang.shell"],
-	"lang.html": UNICODE_SYMBOLS["lang.html"],
-	"lang.css": UNICODE_SYMBOLS["lang.css"],
-	"lang.json": UNICODE_SYMBOLS["lang.json"],
-	"lang.yaml": UNICODE_SYMBOLS["lang.yaml"],
-	"lang.markdown": UNICODE_SYMBOLS["lang.markdown"],
-	"lang.sql": UNICODE_SYMBOLS["lang.sql"],
-	"lang.docker": UNICODE_SYMBOLS["lang.docker"],
-	"lang.lua": UNICODE_SYMBOLS["lang.lua"],
-	"lang.text": UNICODE_SYMBOLS["lang.text"],
-	"lang.env": UNICODE_SYMBOLS["lang.env"],
-	"lang.toml": UNICODE_SYMBOLS["lang.toml"],
-	"lang.xml": UNICODE_SYMBOLS["lang.xml"],
-	"lang.ini": UNICODE_SYMBOLS["lang.ini"],
-	"lang.conf": UNICODE_SYMBOLS["lang.conf"],
-	"lang.log": UNICODE_SYMBOLS["lang.log"],
-	"lang.csv": UNICODE_SYMBOLS["lang.csv"],
-	"lang.tsv": UNICODE_SYMBOLS["lang.tsv"],
-	"lang.image": UNICODE_SYMBOLS["lang.image"],
-	"lang.pdf": UNICODE_SYMBOLS["lang.pdf"],
-	"lang.archive": UNICODE_SYMBOLS["lang.archive"],
-	"lang.binary": UNICODE_SYMBOLS["lang.binary"],
-	// Settings tabs use the classic Font Awesome range bundled by old and new
-	// Nerd Font releases alike.
-	"tab.appearance": "\uf06e",
-	"tab.model": "\uf085",
-	"tab.interaction": "\uf0c0",
-	"tab.context": "\uf03a",
-	"tab.files": "\uf07c",
-	"tab.shell": "\uf120",
-	"tab.tools": "\uf0ad",
-	"tab.memory": "\uf1c0",
-	"tab.tasks": "\uf0ae",
-	"tab.providers": "\uf1e6",
-	// Tool identity icons use classic Font Awesome instead of Codicons so the
-	// success header renders consistently across Nerd Font versions.
-	"tool.write": "\uf044",
-	"tool.edit": "\uf040",
-	"tool.bash": "\uf120",
-	"tool.ssh": "\uf233",
-	"tool.lsp": "\uf0eb",
-	"tool.gh": "\uf09b",
-	"tool.webSearch": "\uf002",
-	"tool.exa": "\uf1e5",
-	"tool.browser": "\uf0ac",
-	"tool.eval": "\uf144",
-	"tool.debug": "\uf188",
-	"tool.mcp": "\uf1e6",
-	"tool.job": "\uf013",
-	"tool.task": "\uf0ae",
-	"tool.todo": "\uf046",
-	"tool.memory": "\uf1c0",
-	"tool.ask": "\uf059",
-	"tool.resolve": "\uf00c",
-	"tool.review": "\uf06e",
-	"tool.inspectImage": "\uf03e",
-	"tool.goal": "\uf140",
+	// Language icons (nerd font devicons)
+	"lang.default": "",
+	"lang.typescript": "\u{E628}",
+	"lang.javascript": "\u{E60C}",
+	"lang.python": "\u{E606}",
+	"lang.rust": "\u{E7A8}",
+	"lang.go": "\u{E627}",
+	"lang.java": "\u{E738}",
+	"lang.c": "\u{E61E}",
+	"lang.cpp": "\u{E61D}",
+	"lang.csharp": "\u{E7BC}",
+	"lang.ruby": "\u{E791}",
+	"lang.julia": "\u{E624}",
+	"lang.php": "\u{E608}",
+	"lang.swift": "\u{E755}",
+	"lang.kotlin": "\u{E634}",
+	"lang.shell": "\u{E795}",
+	"lang.html": "\u{E736}",
+	"lang.css": "\u{E749}",
+	"lang.json": "\u{E60B}",
+	"lang.yaml": "\u{E615}",
+	"lang.markdown": "\u{E609}",
+	"lang.sql": "\u{E706}",
+	"lang.docker": "\u{E7B0}",
+	"lang.lua": "\u{E620}",
+	"lang.text": "\u{E612}",
+	"lang.env": "\u{E615}",
+	"lang.toml": "\u{E615}",
+	"lang.xml": "\u{F05C0}",
+	"lang.ini": "\u{E615}",
+	"lang.conf": "\u{E615}",
+	"lang.log": "\u{F0331}",
+	"lang.csv": "\u{F021B}",
+	"lang.tsv": "\u{F021B}",
+	"lang.image": "\u{F021F}",
+	"lang.pdf": "\u{F0226}",
+	"lang.archive": "\u{F187}",
+	"lang.binary": "\u{F019A}",
+	// Settings tab icons
+	"tab.appearance": "󰃣",
+	"tab.model": "󰚩",
+	"tab.interaction": "󰌌",
+	"tab.context": "󰘸",
+	"tab.files": "󰈔",
+	"tab.shell": "󰆍",
+	"tab.tools": "󰠭",
+	"tab.memory": "󰧑",
+	"tab.tasks": "󰐱",
+	"tab.providers": "󰖟",
+	// Tool identity icons (per-tool signature glyph on the success header)
+	"tool.write": "\uEA7F",
+	"tool.edit": "\uEA73",
+	"tool.bash": "\uEBCA",
+	"tool.ssh": "\uEB3A",
+	"tool.lsp": "\uEA61",
+	"tool.gh": "\uEA84",
+	"tool.webSearch": "\uEB01",
+	"tool.exa": "\uEB68",
+	"tool.browser": "\uEAAE",
+	"tool.eval": "\uEBAF",
+	"tool.debug": "\uEAD8",
+	"tool.mcp": "\uEB2D",
+	"tool.job": "\uEBA2",
+	"tool.task": "\uf4a0",
+	"tool.todo": "\uEAB3",
+	"tool.memory": "\uEACE",
+	"tool.ask": "\uEAC7",
+	"tool.resolve": "\uEBB1",
+	"tool.review": "\uEA70",
+	"tool.inspectImage": "\uEAEA",
+	"tool.goal": "\uEBF8",
 	"tool.irc": "\uF086",
 	"tool.delete": "\uf12d",
 	"tool.move": "\uf061",
@@ -970,7 +973,7 @@ const SPINNER_FRAMES: Record<SymbolPreset, Record<SpinnerType, string[]>> = {
 		activity: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
 	},
 	nerd: {
-		status: ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"],
+		status: ["󱑖", "󱑋", "󱑌", "󱑍", "󱑎", "󱑏", "󱑐", "󱑑", "󱑒", "󱑓", "󱑔", "󱑕"],
 		activity: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
 	},
 	ascii: {

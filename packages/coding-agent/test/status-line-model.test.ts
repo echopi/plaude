@@ -5,7 +5,7 @@ import { renderSegment } from "@oh-my-pi/pi-coding-agent/modes/components/status
 import { initTheme, theme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
 
 beforeAll(async () => {
-	await initTheme(false, "nerd");
+	await initTheme();
 });
 
 function createModelContext(advisorActive: boolean): SegmentContext {
@@ -67,16 +67,13 @@ describe("status line model segment advisor badge", () => {
 });
 
 describe("status line model segment compact thinking level", () => {
-	function createThinkingContext(
-		compactThinkingLevel: boolean,
-		thinkingLevel: ThinkingLevel = ThinkingLevel.High,
-	): SegmentContext {
+	function createThinkingContext(compactThinkingLevel: boolean): SegmentContext {
 		return {
 			...createModelContext(false),
 			session: {
 				state: {
 					model: { id: "test-model", name: "Test Model", thinking: true },
-					thinkingLevel,
+					thinkingLevel: ThinkingLevel.High,
 				},
 				isFastModeActive: () => false,
 				isAutoThinking: false,
@@ -92,11 +89,6 @@ describe("status line model segment compact thinking level", () => {
 		const modelPrefix = theme.icon.model ? `${theme.icon.model} ` : "";
 		const rendered = renderSegment("model", createThinkingContext(false));
 		expect(Bun.stripANSI(rendered.content)).toBe(`${modelPrefix}Test Model${theme.sep.dot}${display}`);
-	});
-
-	it("renders the nerd preset without newer private-use glyphs", () => {
-		const rendered = renderSegment("model", createThinkingContext(false, ThinkingLevel.Medium));
-		expect(Bun.stripANSI(rendered.content)).toBe("\uf120 Test Model · ◑ med");
 	});
 
 	it("swaps the model icon for the level glyph and drops the suffix when compact", () => {
