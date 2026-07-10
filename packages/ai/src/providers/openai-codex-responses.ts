@@ -47,6 +47,7 @@ import {
 	sanitizeOpenAIResponsesAssistantFallbackItemsForReplay,
 	sanitizeOpenAIResponsesAssistantHistoryItemsForReplay,
 } from "../utils";
+import { type AbortSourceTracker, createAbortSourceTracker } from "../utils/abort";
 import { clearStreamingPartialJson, kStreamingLastParseLen, kStreamingPartialJson } from "../utils/block-symbols";
 import { AssistantMessageEventStream } from "../utils/event-stream";
 import type { RawHttpRequestDump } from "../utils/http-inspector";
@@ -360,6 +361,7 @@ interface CodexRequestContext {
 }
 
 interface CodexRequestSetup {
+	abortTracker: AbortSourceTracker;
 	requestSignal: AbortSignal;
 	wrapCodexSseStream: (source: AsyncGenerator<Record<string, unknown>>) => AsyncGenerator<Record<string, unknown>>;
 	requestAbortController: AbortController;
@@ -598,6 +600,7 @@ interface CodexStreamFailureContext {
 	model: Model<"openai-codex-responses">;
 	output: AssistantMessage;
 	options: OpenAICodexResponsesOptions | undefined;
+	requestSetup: CodexRequestSetup;
 	requestContext: CodexRequestContext;
 	startTime: number;
 	firstTokenTime?: number;
@@ -853,28 +856,33 @@ function resetOutputState(output: AssistantMessage): void {
 }
 
 function createRequestSetup(options: OpenAICodexResponsesOptions | undefined): CodexRequestSetup {
-	const requestAbortController = new AbortController();
-	const requestSignal = options?.signal
-		? AbortSignal.any([options.signal, requestAbortController.signal])
-		: requestAbortController.signal;
+	const abortTracker = createAbortSourceTracker(options?.signal);
+	const { requestAbortController, requestSignal } = abortTracker;
 	const idleTimeoutMs = options?.streamIdleTimeoutMs ?? getOpenAIStreamIdleTimeoutMs();
 	const websocketIdleTimeoutMs = options?.streamIdleTimeoutMs ?? CODEX_WEBSOCKET_IDLE_TIMEOUT_MS;
 	const firstEventTimeoutMs = options?.streamFirstEventTimeoutMs ?? getOpenAIStreamFirstEventTimeoutMs(idleTimeoutMs);
 	const websocketFirstEventTimeoutMs = options?.streamFirstEventTimeoutMs ?? CODEX_WEBSOCKET_FIRST_EVENT_TIMEOUT_MS;
+	const firstEventTimeoutAbortError = new AIError.StreamTimeoutError(
+		"OpenAI Codex SSE stream timed out while waiting for the first event",
+	);
+	const idleTimeoutAbortError = new AIError.StreamTimeoutError(
+		"OpenAI Codex SSE stream stalled while waiting for the next event",
+	);
 	const wrapCodexSseStream = (
 		source: AsyncGenerator<Record<string, unknown>>,
 	): AsyncGenerator<Record<string, unknown>> =>
 		iterateWithIdleTimeout(source, {
 			idleTimeoutMs,
 			firstItemTimeoutMs: firstEventTimeoutMs,
-			firstItemErrorMessage: "OpenAI Codex SSE stream timed out while waiting for the first event",
-			errorMessage: "OpenAI Codex SSE stream stalled while waiting for the next event",
-			onIdle: () => requestAbortController.abort(),
-			onFirstItemTimeout: () => requestAbortController.abort(),
+			firstItemErrorMessage: firstEventTimeoutAbortError.message,
+			errorMessage: idleTimeoutAbortError.message,
+			onIdle: () => abortTracker.abortLocally(idleTimeoutAbortError),
+			onFirstItemTimeout: () => abortTracker.abortLocally(firstEventTimeoutAbortError),
 			abortSignal: options?.signal,
 			isProgressItem: isCodexStreamProgressEvent,
 		});
 	return {
+		abortTracker,
 		requestAbortController,
 		requestSignal,
 		wrapCodexSseStream,
@@ -1271,7 +1279,7 @@ async function handleCodexStreamFailure(context: CodexStreamFailureContext, erro
 	}
 	const result = await AIError.finalize(error, {
 		api: context.model.api,
-		signal: context.options?.signal,
+		abortTracker: context.requestSetup.abortTracker,
 		rawRequestDump: context.requestContext.rawRequestDump,
 	});
 	output.stopReason = result.stopReason;
@@ -2088,6 +2096,7 @@ export const streamOpenAICodexResponses: StreamFunction<"openai-codex-responses"
 					model,
 					output,
 					options,
+					requestSetup,
 					requestContext: requestContext ?? {
 						apiKey: "",
 						accountId: "",
