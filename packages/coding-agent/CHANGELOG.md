@@ -33,6 +33,7 @@
 - Fixed subagent yield tool calls being discarded when a soft request budget aborts the assistant turn before the yield event completes.
 - Fixed --tools filtering in interactive sessions incorrectly disabling deferred MCP tools from configured servers.
 - Fixed kept-alive task subagents entering infinite provider-call loops after an IRC wake and terminal yield.
+- Fixed MCP resource notifications showing an unusable generic `mcp://<uri>` hint when a resource URI contains its own scheme; notifications now include the exact `read(path=...)` target.
 
 ## [16.3.15] - 2026-07-09
 
