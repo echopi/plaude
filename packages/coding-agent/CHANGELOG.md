@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- Fixed missing-glyph boxes in the status line when using `symbolPreset: nerd` by using broadly supported symbols for the model and thinking-level indicators.
+- Fixed missing-glyph boxes throughout the UI when using `symbolPreset: nerd` by limiting built-in icons to broadly supported classic Font Awesome, Powerline, and Unicode symbols.
 - Fixed MCP resource notifications showing an unusable generic `mcp://<uri>` hint when a resource URI contains its own scheme; notifications now include the exact `read(path=...)` target.
 ## [16.4.0] - 2026-07-10
 
