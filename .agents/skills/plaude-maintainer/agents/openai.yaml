@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plaude Maintainer"
+  short_description: "Sync, verify, and publish Plaude upstream releases"
+  default_prompt: "Use $plaude-maintainer to check for a new oh-my-pi release and prepare a verified Plaude sync."
