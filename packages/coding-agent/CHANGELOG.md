@@ -227,6 +227,7 @@
 - Fixed ACP stdio EOF/EPIPE disconnects bypassing awaited session teardown and leaving in-flight tool calls pending in persisted rollouts ([#4788](https://github.com/can1357/oh-my-pi/issues/4788)).
 - Routed the print-mode assistant-error/aborted exit, RPC `pi.shutdown()` and stdin-EOF shutdowns, and the extension command-context `shutdown()` through the awaited, idempotent `session.dispose()` before `process.exit()`, so the bounded browser reaper (`releaseTabsForOwner`) always runs and OMP-owned Chromium no longer outlives the process ([#5643](https://github.com/can1357/oh-my-pi/issues/5643)).
 - Fixed missing-glyph boxes in the status line when using `symbolPreset: nerd` by using broadly supported symbols for the model and thinking-level indicators.
+- Fixed missing-glyph boxes throughout the UI when using `symbolPreset: nerd` by limiting built-in icons to broadly supported classic Font Awesome, Powerline, and Unicode symbols.
 - Fixed MCP resource notifications showing an unusable generic `mcp://<uri>` hint when a resource URI contains its own scheme; notifications now include the exact `read(path=...)` target.
 - Fixed active sessions remaining permanently unwritable after transient storage failures by reopening the poisoned writer and atomically restoring all in-memory entries before append, rename, flush, close, or fork continues.
 - Fixed the Plaude source-install wrapper changing the agent working directory to the coding-agent package instead of preserving the directory where `plaude` was launched.
