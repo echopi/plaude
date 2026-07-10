@@ -301,9 +301,10 @@ function buildMcpNotificationBatchMessage(entries: McpNotificationEntry[]): Agen
 	if (resources.length === 0) return null;
 	const lines = [`[MCP notification] ${resources.length} resource(s) updated:`];
 	for (const resource of resources) {
-		lines.push(`- server="${resource.serverName}" uri=${resource.uri}`);
+		const readPath = `mcp://${resource.uri}`;
+		lines.push(`- server="${resource.serverName}" uri=${resource.uri} read(path=${JSON.stringify(readPath)})`);
 	}
-	lines.push('Use read(path="mcp://<uri>") to inspect if relevant.');
+	lines.push("Use the listed read(path=...) target to inspect if relevant.");
 	return {
 		role: "user",
 		content: [{ type: "text", text: lines.join("\n") }],
