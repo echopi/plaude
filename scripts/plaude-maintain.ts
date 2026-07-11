@@ -64,14 +64,6 @@ class CommandError extends Error {
 	}
 }
 
-const PACKAGE_TESTS = new Map<string, string[][]>([
-	["agent", [["bun", "test", "packages/agent"]]],
-	["ai", [["bun", "test", "packages/ai"]]],
-	["catalog", [["bun", "test", "packages/catalog"]]],
-	["coding-agent", [["bun", "test", "packages/coding-agent"]]],
-	["tui", [["bun", "test", "packages/tui"]]],
-]);
-
 const FORK_REGRESSION_COMMAND = [
 	"bun",
 	"test",
@@ -115,15 +107,12 @@ export function classifyRelease(state: MaintainerState, release: GitHubRelease) 
 
 export function buildVerificationCommands(changedPaths: string[]): string[][] {
 	const commands: string[][] = [["bun", "install", "--frozen-lockfile"], ["bun", "check"], FORK_REGRESSION_COMMAND];
-	const packages = new Set<string>();
-	for (const changedPath of changedPaths) {
-		const match = /^packages\/([^/]+)\//.exec(changedPath);
-		if (match) packages.add(match[1]);
-	}
-	for (const packageName of [...packages].sort()) {
-		const packageCommands = PACKAGE_TESTS.get(packageName);
-		if (packageCommands) commands.push(...packageCommands);
-	}
+	const forkRegressions = new Set(FORK_REGRESSION_COMMAND.slice(2));
+	const changedTests = [...new Set(changedPaths)]
+		.filter(changedPath => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(changedPath))
+		.filter(changedPath => !forkRegressions.has(changedPath))
+		.sort();
+	if (changedTests.length > 0) commands.push(["bun", "test", ...changedTests]);
 	return commands;
 }
 

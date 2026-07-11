@@ -45,7 +45,7 @@ Use `scripts/plaude-maintain.ts` for deterministic state changes. Keep conflict 
    bun scripts/plaude-maintain.ts verify --json
    ```
 
-   Verification always runs dependency lock validation, repository checks, and Plaude fork regressions. It adds package suites for changed `agent`, `ai`, `catalog`, `coding-agent`, and `tui` paths.
+   Verification always runs dependency lock validation, repository checks, Plaude fork regressions, and every test file changed by the release. Package-wide suites are diagnostic signals: run them when investigating risk, but compare pre-existing failures against the base instead of making an unhealthy baseline a hard submit gate.
 
 6. On failure, read the full `commands.log` in the reported receipt. Establish one root-cause hypothesis. Use the repository `bugfix` workflow for a product regression, commit the minimal fix in the maintenance worktree, then rerun `verify`. Never manually edit state to mark a run green.
 

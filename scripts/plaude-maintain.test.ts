@@ -71,28 +71,27 @@ describe("classifyRelease", () => {
 });
 
 describe("buildVerificationCommands", () => {
-	it("combines baseline fork regressions with affected package suites", () => {
+	it("combines fork regressions with changed test files", () => {
 		const commands = buildVerificationCommands([
 			"packages/ai/src/providers/openai-codex-responses.ts",
-			"packages/catalog/src/models.json",
-			"packages/tui/src/components/markdown.ts",
+			"packages/catalog/test/codex-discovery.test.ts",
+			"packages/tui/test/markdown.test.ts",
 		]);
 		expect(commands.map(command => command.join(" "))).toEqual([
 			"bun install --frozen-lockfile",
 			"bun check",
 			"bun test packages/ai/test/openai-codex-stream.test.ts packages/coding-agent/test/sdk-mcp-notification-uri.test.ts packages/coding-agent/test/lite-render-policy.test.ts packages/coding-agent/test/lite-theme-filter.test.ts",
-			"bun test packages/ai",
-			"bun test packages/catalog",
-			"bun test packages/tui",
+			"bun test packages/catalog/test/codex-discovery.test.ts packages/tui/test/markdown.test.ts",
 		]);
 	});
 
-	it("does not duplicate a package suite when many files in it changed", () => {
+	it("deduplicates changed tests and ignores source-only paths", () => {
 		const commands = buildVerificationCommands([
 			"packages/coding-agent/src/sdk.ts",
-			"packages/coding-agent/src/main.ts",
+			"packages/coding-agent/test/oauth-flow.test.ts",
+			"packages/coding-agent/test/oauth-flow.test.ts",
 		]);
-		expect(commands.filter(command => command.join(" ") === "bun test packages/coding-agent")).toHaveLength(1);
+		expect(commands.at(-1)?.join(" ")).toBe("bun test packages/coding-agent/test/oauth-flow.test.ts");
 	});
 });
 
