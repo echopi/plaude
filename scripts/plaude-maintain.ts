@@ -464,6 +464,30 @@ async function cleanupActive(options: CliOptions): Promise<void> {
 	});
 }
 
+async function abandonActive(options: CliOptions): Promise<void> {
+	await withLock(options.stateDir, async () => {
+		const state = await loadState(options.stateDir);
+		const active = state.active;
+		if (!active) return;
+		if (active.status === "submitted") throw new Error("Submitted syncs must be cleaned up, not abandoned");
+		if ((await git(active.worktree, ["status", "--porcelain"])) !== "") {
+			throw new Error("Commit or discard active worktree changes before abandoning it");
+		}
+		const receiptDir = await createReceipt(options.stateDir, "abandon");
+		const commandLog = path.join(receiptDir, "commands.log");
+		const abandonedSha = await git(active.worktree, ["rev-parse", "HEAD"], commandLog);
+		await Bun.write(
+			path.join(receiptDir, "abandoned.json"),
+			`${JSON.stringify({ ...active, abandonedSha }, null, 2)}\n`,
+		);
+		await git(options.repoPath, ["worktree", "remove", active.worktree], commandLog);
+		await git(options.repoPath, ["branch", "-D", active.branch], commandLog);
+		delete state.active;
+		await saveState(options.stateDir, state);
+		print({ abandoned: true, tag: active.tag, abandonedSha, receiptDir }, options.json);
+	});
+}
+
 function parsePositiveInteger(value: string, flag: string): number {
 	const parsed = Number(value);
 	if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`${flag} must be a positive integer`);
@@ -541,6 +565,7 @@ Usage:
   bun scripts/plaude-maintain.ts verify [--json]
   bun scripts/plaude-maintain.ts submit [--json]
   bun scripts/plaude-maintain.ts cleanup [--json]
+  bun scripts/plaude-maintain.ts abandon [--json]
 
 Common options: --repo, --state-dir, --upstream-url, --fork-remote, --work-branch
 `;
@@ -571,6 +596,9 @@ async function main(argv: string[]): Promise<void> {
 			break;
 		case "cleanup":
 			await cleanupActive(options);
+			break;
+		case "abandon":
+			await abandonActive(options);
 			break;
 		case "help":
 		case "--help":

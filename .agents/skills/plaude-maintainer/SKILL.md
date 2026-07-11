@@ -88,3 +88,10 @@ The watcher only notifies and records `lastSeenTag`; it never syncs, edits, comm
 - `changed after verification`: rerun `verify`; never bypass the SHA gate.
 - Network/auth failure: preserve state and receipts, diagnose direct/proxy/auth layers, then retry the failed command only.
 - Cleanup is allowed only after successful submission so a failed or unsubmitted worktree remains inspectable.
+- When a newer release supersedes an unsubmitted sync, abandon the clean active worktree explicitly before syncing the newer exact tag:
+
+  ```bash
+  bun scripts/plaude-maintain.ts abandon --json
+  ```
+
+  `abandon` records the tag and HEAD in a receipt, refuses dirty worktrees, and never applies to submitted syncs.
