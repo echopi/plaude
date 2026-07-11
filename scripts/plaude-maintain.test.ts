@@ -206,6 +206,33 @@ describe("sync command", () => {
 			expect((await git(root, `--git-dir=${fork}`, "rev-parse", "refs/heads/auto/upstream-sync")).trim()).toBe(
 				verifiedSha,
 			);
+
+			await run([process.execPath, cli, "cleanup", "--repo", repo, "--state-dir", stateDir], repo);
+			await Bun.write(path.join(upstream, "superseding.txt"), "v1.2.4\n");
+			await git(upstream, "add", "superseding.txt");
+			await git(upstream, "commit", "-m", "superseding release");
+			await git(upstream, "tag", "v1.2.4");
+			await run(
+				[
+					process.execPath,
+					cli,
+					"sync",
+					"v1.2.4",
+					"--repo",
+					repo,
+					"--state-dir",
+					stateDir,
+					"--upstream-url",
+					upstream,
+				],
+				repo,
+			);
+			const superseded = (await Bun.file(path.join(stateDir, "state.json")).json()) as MaintainerState;
+			const abandonedWorktree = superseded.active?.worktree;
+			await run([process.execPath, cli, "abandon", "--repo", repo, "--state-dir", stateDir], repo);
+			const abandoned = (await Bun.file(path.join(stateDir, "state.json")).json()) as MaintainerState;
+			expect(abandoned.active).toBeUndefined();
+			expect(await Bun.file(abandonedWorktree ?? "").exists()).toBe(false);
 		} finally {
 			await fs.rm(root, { recursive: true, force: true });
 		}
