@@ -5,6 +5,25 @@
 ### Fixed
 
 - Fixed MCP resource notifications showing an unusable generic `mcp://<uri>` hint when a resource URI contains its own scheme; notifications now include the exact `read(path=...)` target.
+## [16.4.2] - 2026-07-10
+
+### Fixed
+
+- Fixed an issue where BigInt values in tool arguments failed to serialize during session compaction.
+- Resolved an issue where GPT-5.6 over-delegated tasks by refining task fan-out and concurrency policies in the system prompt.
+- Fixed a race condition in concurrent MCP OAuth token refreshes across processes, ensuring rotating refresh tokens are only refreshed once and preventing stale token errors from clearing valid credentials.
+
+## [16.4.1] - 2026-07-10
+
+### Changed
+
+- Reduced agent bias against large diffs and refactors in advisor prompts
+- Updated advisor blocker criteria to prioritize explicit user instructions over plan size
+
+### Fixed
+
+- Fixed MCP OAuth dynamic client registration omitting discovered scopes on the RFC 7591 registration body. Providers such as Clerk bind DCR-created clients to only the scopes declared at registration, then reject the subsequent authorize request when it asks for `openid` (from `scopes_supported`). Registration now includes `config.scopes` when present, matching Claude Code and the scopes already sent on authorize.
+
 ## [16.4.0] - 2026-07-10
 
 ### Breaking Changes
