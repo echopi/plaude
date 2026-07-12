@@ -58,6 +58,25 @@ describe("lite render policy", () => {
 		expect(rendered).not.toContain("Wall:");
 	});
 
+	it("keeps installed Plaude wrappers on Claude defaults during env migration", async () => {
+		const child = Bun.spawn(
+			[
+				process.execPath,
+				"-e",
+				'import { Settings } from "./src/config/settings"; const s = await Settings.init({ inMemory: true }); console.log(s.get("renderStyle") + ":" + s.get("statusLine.preset"));',
+			],
+			{
+				cwd: new URL("../", import.meta.url).pathname,
+				env: { ...process.env, PLAUDE: undefined, PLAUDE_STATUSLINE_STYLE: "claude" },
+				stdout: "pipe",
+				stderr: "pipe",
+			},
+		);
+
+		expect(await new Response(child.stdout).text()).toBe("claude:lite\n");
+		expect(await child.exited).toBe(0);
+	});
+
 	it("keeps Claude-style collapsed tool summaries away from the left terminal edge", () => {
 		settings.set("renderStyle", "claude");
 		const component = new ToolExecutionComponent(
