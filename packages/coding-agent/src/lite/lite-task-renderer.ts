@@ -97,6 +97,6 @@ export function renderLiteTaskResult(
 	if (latest) return renderLine(finalLine(latest, theme), theme, failed ? "error" : "text");
 
 	const spinner = formatStatusIcon("running", theme, options.spinnerFrame);
-	const label = task?.description?.trim() || task?.agent?.trim() || "task";
+	const label = task?.task?.trim() || task?.agent?.trim() || "task";
 	return renderLine(`${spinner} ${label} - pending`, theme, "dim");
 }
