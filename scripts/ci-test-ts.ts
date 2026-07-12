@@ -110,6 +110,7 @@ const localOnlyWorkspacePackages = ["packages/mnemopi", "python/robomp/web"];
 // silently ignores unmatched filters when at least one other filter matches.)
 const repoScriptTests = [
 	"scripts/ci-concurrency.test.ts",
+	"scripts/ci-build-native.test.ts",
 	"scripts/ci-release-notes.test.ts",
 	"scripts/fix-dts-extensions.test.ts",
 	"scripts/link-omp.test.ts",
@@ -344,6 +345,7 @@ async function commandsForMode(mode: Mode): Promise<TestCommand[]> {
 						"--parallel=4",
 						...onlyFailuresArgs,
 						"scripts/ci-concurrency.test.ts",
+						"scripts/ci-build-native.test.ts",
 						"scripts/fix-dts-extensions.test.ts",
 					],
 				},
