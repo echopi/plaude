@@ -11,7 +11,7 @@
 import type { TextContent } from "@oh-my-pi/pi-ai";
 import type { Box, Component } from "@oh-my-pi/pi-tui";
 import { Markdown, Spacer, Text } from "@oh-my-pi/pi-tui";
-import { useClaudeStatusLine } from "../../lite/render-policy";
+import { isClaudeStyle } from "../../lite/render-policy";
 import { getMarkdownTheme, type Theme, theme } from "../../modes/theme/theme";
 
 /** Message shape consumed by the shared frame. */
@@ -60,9 +60,7 @@ export function renderFramedMessage<M extends FramedMessage>(opts: RebuildFrameO
 
 	opts.box.clear();
 	// Legacy rendering keeps a subtle card outline; Claude-style transcripts keep injected messages inline.
-	opts.box.setBorder(
-		useClaudeStatusLine() ? undefined : { chars: theme.boxRound, color: t => theme.fg("borderMuted", t) },
-	);
+	opts.box.setBorder(isClaudeStyle() ? undefined : { chars: theme.boxRound, color: t => theme.fg("borderMuted", t) });
 
 	const tag = opts.icon ? `${opts.icon} ${opts.message.customType}` : opts.message.customType;
 	opts.box.addChild(new Text(theme.fg("customMessageLabel", theme.bold(tag)), 0, 0));

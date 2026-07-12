@@ -24,7 +24,7 @@ describe("lite CLI surface", () => {
 			unknown
 		>;
 
-		expect(defaults.liteMode).toBe(true);
+		expect(defaults.renderStyle).toBe("claude");
 		for (const path of LITE_CORE_SETTING_PATHS) {
 			expect(Object.hasOwn(defaults, path)).toBe(true);
 		}

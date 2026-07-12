@@ -1,5 +1,5 @@
 import { Box, Container, Spacer, Text } from "@oh-my-pi/pi-tui";
-import { useClaudeStatusLine } from "../../lite/render-policy";
+import { isClaudeStyle } from "../../lite/render-policy";
 import { theme } from "../../modes/theme/theme";
 import type { TodoItem } from "../../tools/todo";
 
@@ -29,7 +29,7 @@ export class TodoReminderComponent extends Container {
 	}
 
 	override render(width: number): readonly string[] {
-		if (!useClaudeStatusLine()) return super.render(width);
+		if (!isClaudeStyle()) return super.render(width);
 
 		const count = this.todos.length;
 		const label = count === 1 ? "todo" : "todos";

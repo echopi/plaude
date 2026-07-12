@@ -74,7 +74,7 @@ fi
 WRAPPER="$BIN_DIR/$CMD_NAME"
 cat >"$WRAPPER" <<EOF
 #!/bin/sh
-export PLAUDE_STATUSLINE_STYLE="\${PLAUDE_STATUSLINE_STYLE:-claude}"
+export PLAUDE=1
 export PI_CODEX_WEBSOCKET="\${PI_CODEX_WEBSOCKET:-0}"
 if [ -z "\${PI_PROXY:-}" ]; then
 	PI_PROXY="\${HTTPS_PROXY:-\${HTTP_PROXY:-}}"

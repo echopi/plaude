@@ -14,6 +14,8 @@ import {
  * without the method are treated as finalized — the default, stable behavior.
  */
 interface FinalizableBlock {
+	/** Adjacent blocks with the same compact class render without a blank gap. */
+	getTranscriptSpacingClass?(): "compact-tool";
 	isTranscriptBlockFinalized?(): boolean;
 	/**
 	 * Monotonic content version for blocks that can still mutate *after*
@@ -52,6 +54,13 @@ interface FinalizableBlock {
 	isDisplaceableBlock?(): boolean;
 	/** Finalize a displaceable snapshot in place (settle animation, freeze bytes). */
 	seal?(): void;
+}
+
+function shouldSeparateBlocks(previous: Component | undefined, current: Component): boolean {
+	if (!previous) return false;
+	const previousClass = (previous as Component & FinalizableBlock).getTranscriptSpacingClass?.();
+	const currentClass = (current as Component & FinalizableBlock).getTranscriptSpacingClass?.();
+	return previousClass === undefined || previousClass !== currentClass;
 }
 
 function isBlockFinalized(child: Component): boolean {
@@ -266,22 +275,30 @@ export class TranscriptContainer
 	renderViewportTail(width: number, maxRows: number): readonly string[] {
 		width = Math.max(1, width);
 		if (maxRows <= 0) return EMPTY_TAIL;
-		const collected: (readonly string[])[] = [];
+		const collected: { component: Component; contribution: readonly string[] }[] = [];
 		let total = 0;
 		for (let i = this.children.length - 1; i >= 0 && total < maxRows; i--) {
 			const contribution = stripPlainBlankEdges(this.children[i]!.render(width));
 			if (contribution.length === 0) continue;
 			// One blank separator sits between this block and the (already
 			// collected) visible block below it.
-			if (collected.length > 0) total += 1;
-			collected.push(contribution);
+			if (
+				collected.length > 0 &&
+				shouldSeparateBlocks(this.children[i], collected[collected.length - 1]!.component)
+			) {
+				total += 1;
+			}
+			collected.push({ component: this.children[i]!, contribution });
 			total += contribution.length;
 		}
 		if (collected.length === 0) return EMPTY_TAIL;
 		const rows: string[] = [];
 		for (let k = collected.length - 1; k >= 0; k--) {
-			if (rows.length > 0) rows.push("");
-			const body = collected[k]!;
+			const block = collected[k]!;
+			if (rows.length > 0 && shouldSeparateBlocks(collected[k + 1]?.component, block.component)) {
+				rows.push("");
+			}
+			const body = block.contribution;
 			for (let j = 0; j < body.length; j++) rows.push(body[j]!);
 		}
 		return rows.length > maxRows ? rows.slice(rows.length - maxRows) : rows;
@@ -348,6 +365,7 @@ export class TranscriptContainer
 		// Frame row cursor: rows emitted (reused or pushed) so far.
 		let row = 0;
 		let stableRows = 0;
+		let previousVisible: Component | undefined;
 		for (let i = 0; i < count; i++) {
 			const child = this.children[i]!;
 
@@ -423,7 +441,7 @@ export class TranscriptContainer
 			// already a plain blank (a fragment's own trailing pad), never doubling.
 			// `lines[row - 1]` is valid in both modes: reused rows are still present
 			// in the persistent array, re-pushed rows were just written.
-			const sep = row > 0 && !isPlainBlank(lines[row - 1]!) ? 1 : 0;
+			const sep = row > 0 && !isPlainBlank(lines[row - 1]!) && shouldSeparateBlocks(previousVisible, child) ? 1 : 0;
 
 			// The separator before the first live block stays in the committed
 			// prefix (it is deterministic once the prior block's body is
@@ -467,6 +485,7 @@ export class TranscriptContainer
 				version,
 			};
 			row += rowCount;
+			previousVisible = child;
 		}
 		// Trailing shrink: blocks removed from the tail leave stale rows behind
 		// when every surviving segment was reused.

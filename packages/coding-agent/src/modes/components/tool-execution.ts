@@ -17,7 +17,7 @@ import {
 import { getProjectDir, logger, sanitizeText } from "@oh-my-pi/pi-utils";
 import { EDIT_MODE_STRATEGIES, type EditMode, type PerFileDiffPreview } from "../../edit";
 import { getLiteToolRenderer } from "../../lite/lite-tool-renderers";
-import { getRenderDensity, isLiteRender } from "../../lite/render-policy";
+import { getRenderDensity, isClaudeStyle, isLiteRender } from "../../lite/render-policy";
 import type { Theme } from "../../modes/theme/theme";
 import { getThemeEpoch, theme } from "../../modes/theme/theme";
 import { BASH_DEFAULT_PREVIEW_LINES } from "../../tools/bash";
@@ -714,6 +714,10 @@ export class ToolExecutionComponent extends Container implements NativeScrollbac
 	 */
 	getNativeScrollbackLiveRegionStart(): number | undefined {
 		return this.isTranscriptBlockFinalized() ? undefined : 0;
+	}
+
+	getTranscriptSpacingClass(): "compact-tool" | undefined {
+		return isClaudeStyle() ? "compact-tool" : undefined;
 	}
 
 	/**

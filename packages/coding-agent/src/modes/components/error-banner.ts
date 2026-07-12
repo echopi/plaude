@@ -1,4 +1,5 @@
 import { Container, Spacer, Text } from "@oh-my-pi/pi-tui";
+import { isClaudeStyle } from "../../lite/render-policy";
 import { getPreviewLines, TRUNCATE_LENGTHS } from "../../tools/render-utils";
 import { theme } from "../theme/theme";
 import { DynamicBorder } from "./dynamic-border";
@@ -10,8 +11,7 @@ const MAX_BANNER_LINES = 3;
  * A persistent error banner pinned above the editor. Unlike the transcript
  * "Error: …" line (which scrolls away as the conversation grows), this stays in
  * the fixed region directly above the input so a turn that ended on a provider
- * error — e.g. Anthropic's "Output blocked by content filtering policy" — cannot
- * be missed. It is cleared when the next turn starts.
+ * error cannot be missed. It is cleared when the next turn starts.
  */
 export class ErrorBannerComponent extends Container {
 	constructor(message: string) {
@@ -19,6 +19,15 @@ export class ErrorBannerComponent extends Container {
 		const lines = getPreviewLines(message, MAX_BANNER_LINES, TRUNCATE_LENGTHS.LINE);
 		if (lines.length === 0) {
 			lines.push("Unknown error");
+		}
+
+		if (isClaudeStyle()) {
+			this.addChild(new Spacer(1));
+			this.addChild(new Text(theme.fg("error", `  ! ${lines[0]}`), 0, 0));
+			for (const line of lines.slice(1)) {
+				this.addChild(new Text(theme.fg("error", `    ${line}`), 0, 0));
+			}
+			return;
 		}
 
 		this.addChild(new Spacer(1));

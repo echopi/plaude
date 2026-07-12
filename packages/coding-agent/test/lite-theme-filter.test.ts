@@ -10,21 +10,13 @@ function leftClick(line: number): SgrMouseEvent {
 }
 
 describe("lite theme filtering", () => {
-	const originalLiteRenderTest = process.env.OMP_LITE_RENDER_TEST;
-
 	beforeEach(async () => {
-		process.env.OMP_LITE_RENDER_TEST = "1";
 		resetSettingsForTest();
-		await Settings.init({ inMemory: true });
+		await Settings.init({ inMemory: true, overrides: { renderStyle: "claude" } });
 		await initTheme();
 	});
 
 	afterEach(() => {
-		if (originalLiteRenderTest === undefined) {
-			delete process.env.OMP_LITE_RENDER_TEST;
-		} else {
-			process.env.OMP_LITE_RENDER_TEST = originalLiteRenderTest;
-		}
 		resetSettingsForTest();
 	});
 

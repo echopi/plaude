@@ -1,5 +1,5 @@
 import { Container, Markdown, truncateToWidth } from "@oh-my-pi/pi-tui";
-import { useClaudeStatusLine } from "../../lite/render-policy";
+import { isClaudeStyle } from "../../lite/render-policy";
 import { getMarkdownTheme, theme } from "../../modes/theme/theme";
 import { imageReferenceHyperlink, renderPlaceholders } from "../image-references";
 import { highlightMagicKeywords } from "../magic-keywords";
@@ -25,7 +25,7 @@ export class UserMessageComponent extends Container {
 
 	constructor(text: string, synthetic = false, imageLinks?: readonly (string | undefined)[]) {
 		super();
-		this.#claudeStyle = useClaudeStatusLine();
+		this.#claudeStyle = isClaudeStyle();
 		const bgColor = (value: string) => theme.bg("userMessageBg", value);
 		// Paint the magic keywords ("ultrathink"/"orchestrate"/"workflowz") inside the rendered
 		// bubble too — matching the live editor glow. The Markdown component routes code spans and

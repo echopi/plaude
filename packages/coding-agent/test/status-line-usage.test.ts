@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import { StatusLineComponent } from "@oh-my-pi/pi-coding-agent/modes/components/status-line";
 import { renderSegment } from "@oh-my-pi/pi-coding-agent/modes/components/status-line/segments";
 import type { SegmentContext } from "@oh-my-pi/pi-coding-agent/modes/components/status-line/types";
@@ -81,23 +81,15 @@ describe("usage status-line segment", () => {
 	});
 
 	it("renders compact Claude-style usage when Claude statusline style is enabled", () => {
-		const previous = process.env.PLAUDE_STATUSLINE_STYLE;
-		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
-		try {
-			const result = renderSegment("usage", {
-				usage: { fiveHour: { percent: 9, resetMinutes: 30 }, sevenDay: { percent: 80, resetHours: 141 } },
-			} as unknown as SegmentContext);
-			const content = stripVTControlCharacters(result.content);
+		settings.set("renderStyle", "claude");
+		const result = renderSegment("usage", {
+			usage: { fiveHour: { percent: 9, resetMinutes: 30 }, sevenDay: { percent: 80, resetHours: 141 } },
+		} as unknown as SegmentContext);
+		const content = stripVTControlCharacters(result.content);
 
-			expect(result.visible).toBe(true);
-			expect(content).toBe("5h:9%/7d:80%");
-		} finally {
-			if (previous === undefined) {
-				delete process.env.PLAUDE_STATUSLINE_STYLE;
-			} else {
-				process.env.PLAUDE_STATUSLINE_STYLE = previous;
-			}
-		}
+		expect(result.visible).toBe(true);
+		expect(content).toBe("5h:9% / 7d:80%");
+		settings.set("renderStyle", "omp");
 	});
 
 	it("renders tiered usage fetched from provider reports", async () => {

@@ -3,6 +3,7 @@ import type { SettingDef } from "../modes/components/settings-defs";
 import { isLiteRender } from "./render-policy";
 
 export const LITE_CORE_SETTING_PATHS = [
+	"renderStyle",
 	"theme.dark",
 	"theme.light",
 	"statusLine.preset",

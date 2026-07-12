@@ -2,7 +2,7 @@ import * as path from "node:path";
 import type { Component } from "@oh-my-pi/pi-tui";
 import { Container, Text } from "@oh-my-pi/pi-tui";
 import { InternalUrlRouter } from "../../internal-urls";
-import { useClaudeStatusLine } from "../../lite/render-policy";
+import { isClaudeStyle } from "../../lite/render-policy";
 import { getLanguageFromPath, theme } from "../../modes/theme/theme";
 import { parseLineRanges, selectorLineRanges, splitPathAndSel } from "../../tools/path-utils";
 import { PREVIEW_LIMITS, shortenPath } from "../../tools/render-utils";
@@ -682,6 +682,6 @@ export class ReadToolGroupComponent extends Container implements ToolExecutionHa
 	#textPaddingX(): number {
 		// Read rows already include one leading spacer before the status glyph.
 		// One Text padding column brings the visible Claude-style gutter to two columns.
-		return useClaudeStatusLine() ? 1 : 0;
+		return isClaudeStyle() ? 1 : 0;
 	}
 }

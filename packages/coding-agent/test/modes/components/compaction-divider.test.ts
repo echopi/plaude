@@ -9,11 +9,19 @@
 import { afterEach, beforeAll, describe, expect, it } from "bun:test";
 import { createCompactionSummaryMessage } from "@oh-my-pi/pi-agent-core/compaction";
 import type { ImageContent } from "@oh-my-pi/pi-ai";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import { CompactionSummaryMessageComponent } from "@oh-my-pi/pi-coding-agent/modes/components/compaction-summary-message";
 import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
 
-beforeAll(() => {
-	initTheme();
+beforeAll(async () => {
+	resetSettingsForTest();
+	await Settings.init({ inMemory: true });
+	settings.set("renderStyle", "omp");
+	await initTheme();
+});
+
+afterEach(() => {
+	settings.set("renderStyle", "omp");
 });
 
 const SUMMARY = "Earlier the user fixed the login TTL bug.";
@@ -25,16 +33,6 @@ function makeComponent(images?: ImageContent[]): CompactionSummaryMessageCompone
 }
 
 describe("CompactionSummaryMessageComponent", () => {
-	const originalPlaudeStatuslineStyle = process.env.PLAUDE_STATUSLINE_STYLE;
-
-	afterEach(() => {
-		if (originalPlaudeStatuslineStyle === undefined) {
-			delete process.env.PLAUDE_STATUSLINE_STYLE;
-		} else {
-			process.env.PLAUDE_STATUSLINE_STYLE = originalPlaudeStatuslineStyle;
-		}
-	});
-
 	it("collapsed: a single full-width divider carrying the expand affordance", () => {
 		const lines = makeComponent().render(80);
 		expect(lines.length).toBe(3); // breathing room above and below the rule
@@ -57,7 +55,7 @@ describe("CompactionSummaryMessageComponent", () => {
 	});
 
 	it("expanded: uses lightweight detail text in Claude-style rendering", () => {
-		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+		settings.set("renderStyle", "claude");
 		const component = makeComponent();
 		component.setExpanded(true);
 

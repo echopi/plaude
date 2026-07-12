@@ -1,11 +1,23 @@
-import { beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
 import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
+import { Effort } from "@oh-my-pi/pi-ai";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import type { SegmentContext } from "@oh-my-pi/pi-coding-agent/modes/components/status-line/segments";
 import { renderSegment } from "@oh-my-pi/pi-coding-agent/modes/components/status-line/segments";
 import { initTheme, theme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
 
 beforeAll(async () => {
+	resetSettingsForTest();
+	await Settings.init({ inMemory: true });
 	await initTheme();
+});
+
+afterAll(() => {
+	resetSettingsForTest();
+});
+
+afterEach(() => {
+	settings.set("renderStyle", "omp");
 });
 
 function createModelContext(advisorActive: boolean): SegmentContext {
@@ -52,6 +64,23 @@ function createModelContext(advisorActive: boolean): SegmentContext {
 }
 
 describe("status line model segment advisor badge", () => {
+	it("renders only the model id in Claude style", () => {
+		settings.set("renderStyle", "claude");
+		const ctx = createModelContext(true);
+		ctx.session.state.model = {
+			...ctx.session.state.model!,
+			id: "claude-sonnet-4-5",
+			name: "Claude Sonnet 4.5",
+			thinking: { mode: "effort", efforts: [Effort.High] },
+		};
+		ctx.session.state.thinkingLevel = ThinkingLevel.High;
+
+		const rendered = renderSegment("model", ctx);
+
+		expect(Bun.stripANSI(rendered.content)).toBe("claude-sonnet-4-5");
+		settings.set("renderStyle", "omp");
+	});
+
 	it("appends a success-colored ++ badge when the advisor is active", () => {
 		const rendered = renderSegment("model", createModelContext(true));
 		expect(rendered.content).toContain("Test Model");
@@ -64,6 +93,22 @@ describe("status line model segment advisor badge", () => {
 		const rendered = renderSegment("model", createModelContext(false));
 		expect(rendered.content).toContain("Test Model");
 		expect(rendered.content).not.toContain("++");
+	});
+});
+
+describe("status line context segment", () => {
+	it("renders only the percentage in Claude style", () => {
+		settings.set("renderStyle", "claude");
+		const ctx = createModelContext(false);
+		ctx.contextPercent = 3;
+		ctx.contextTokens = 30_000;
+		ctx.contextWindow = 1_000_000;
+		ctx.autoCompactEnabled = true;
+
+		const rendered = renderSegment("context_pct", ctx);
+
+		expect(Bun.stripANSI(rendered.content)).toBe("3.0%");
+		settings.set("renderStyle", "omp");
 	});
 });
 

@@ -1291,6 +1291,14 @@ export class Settings {
 		if (tierTouched) raw.tier = tierObj;
 		delete raw.fastModeScope;
 
+		// liteMode (boolean) -> renderStyle (enum)
+		if ("liteMode" in raw) {
+			if (!("renderStyle" in raw)) {
+				raw.renderStyle = raw.liteMode ? "claude" : "omp";
+			}
+			delete raw.liteMode;
+		}
+
 		return raw;
 	}
 

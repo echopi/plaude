@@ -1,6 +1,6 @@
 import { Box, Container, Spacer, Text } from "@oh-my-pi/pi-tui";
 import type { Rule } from "../../capability/rule";
-import { useClaudeStatusLine } from "../../lite/render-policy";
+import { isClaudeStyle } from "../../lite/render-policy";
 import { theme } from "../../modes/theme/theme";
 
 /** Collapsed view shows at most this many rules before eliding the rest. */
@@ -55,7 +55,7 @@ export class TtsrNotificationComponent extends Container {
 	}
 
 	override render(width: number): readonly string[] {
-		if (!useClaudeStatusLine()) return super.render(width);
+		if (!isClaudeStyle()) return super.render(width);
 
 		const block = new Container();
 		block.addChild(new Spacer(1));

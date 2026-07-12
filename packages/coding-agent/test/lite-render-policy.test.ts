@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { AgentTool } from "@oh-my-pi/pi-agent-core";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import { ToolExecutionComponent } from "@oh-my-pi/pi-coding-agent/modes/components/tool-execution";
 import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
 import { Text, type TUI } from "@oh-my-pi/pi-tui";
@@ -31,27 +31,14 @@ function customTool(): AgentTool {
 }
 
 describe("lite render policy", () => {
-	const originalLiteRenderTest = process.env.OMP_LITE_RENDER_TEST;
-	const originalPlaudeStatuslineStyle = process.env.PLAUDE_STATUSLINE_STYLE;
-
 	beforeEach(async () => {
-		process.env.OMP_LITE_RENDER_TEST = "1";
 		resetSettingsForTest();
-		await Settings.init({ inMemory: true });
+		await Settings.init({ inMemory: true, overrides: { renderStyle: "claude" } });
 		await initTheme();
 	});
 
 	afterEach(() => {
-		if (originalLiteRenderTest === undefined) {
-			delete process.env.OMP_LITE_RENDER_TEST;
-		} else {
-			process.env.OMP_LITE_RENDER_TEST = originalLiteRenderTest;
-		}
-		if (originalPlaudeStatuslineStyle === undefined) {
-			delete process.env.PLAUDE_STATUSLINE_STYLE;
-		} else {
-			process.env.PLAUDE_STATUSLINE_STYLE = originalPlaudeStatuslineStyle;
-		}
+		resetSettingsForTest();
 	});
 
 	it("renders completed tools as a collapsed one-line summary by default", () => {
@@ -72,7 +59,7 @@ describe("lite render policy", () => {
 	});
 
 	it("keeps Claude-style collapsed tool summaries away from the left terminal edge", () => {
-		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+		settings.set("renderStyle", "claude");
 		const component = new ToolExecutionComponent(
 			"bash",
 			{ command: "printf hello" },
@@ -91,7 +78,7 @@ describe("lite render policy", () => {
 	});
 
 	it("keeps Claude-style collapsed task summaries aligned with tool summaries", () => {
-		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+		settings.set("renderStyle", "claude");
 		const component = new ToolExecutionComponent("task", { agent: "codex" }, {}, undefined, makeUi(), process.cwd());
 
 		component.updateResult(result("done"), false);
@@ -103,7 +90,7 @@ describe("lite render policy", () => {
 	});
 
 	it("keeps Claude-style compact edit diff rows aligned with the tool summary", () => {
-		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+		settings.set("renderStyle", "claude");
 		const component = new ToolExecutionComponent(
 			"edit",
 			{ file_path: "src/app.ts" },
@@ -139,9 +126,9 @@ describe("lite render policy", () => {
 		expect(strip(component)).toContain("full:result");
 	});
 
-	it("uses the original renderer when liteMode is disabled", async () => {
+	it("uses the original renderer when renderStyle is omp", async () => {
 		resetSettingsForTest();
-		await Settings.init({ inMemory: true, overrides: { liteMode: false } });
+		await Settings.init({ inMemory: true, overrides: { renderStyle: "omp" } });
 		await initTheme();
 
 		const component = new ToolExecutionComponent("custom_render", {}, {}, customTool(), makeUi(), process.cwd());

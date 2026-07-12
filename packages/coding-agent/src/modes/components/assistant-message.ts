@@ -4,7 +4,7 @@ import { formatNumber } from "@oh-my-pi/pi-utils";
 import chalk from "chalk";
 import type { AssistantThinkingRenderer } from "../../extensibility/extensions/types";
 import { getLiteMarkdownTheme } from "../../lite/lite-markdown-theme";
-import { useClaudeStatusLine } from "../../lite/render-policy";
+import { isClaudeStyle } from "../../lite/render-policy";
 import { theme } from "../../modes/theme/theme";
 import { getPreviewLines, resolveImageOptions, TRUNCATE_LENGTHS } from "../../tools/render-utils";
 import { canonicalizeMessage, formatThinkingForDisplay, hasDisplayableThinking } from "../../utils/thinking-display";
@@ -22,7 +22,7 @@ const MAX_TRANSCRIPT_ERROR_LINES = 8;
 const CLAUDE_TRANSCRIPT_GUTTER = " ";
 
 function assistantMarkdownOptions(): { plainTables: boolean } | undefined {
-	return useClaudeStatusLine() ? { plainTables: true } : undefined;
+	return isClaudeStyle() ? { plainTables: true } : undefined;
 }
 
 /** Opening or closing fence of a code block: ≥3 backticks/tildes plus info string. */
@@ -294,7 +294,7 @@ export class AssistantMessageComponent extends Container {
 	}
 
 	override render(width: number): readonly string[] {
-		const gutter = useClaudeStatusLine() && width > CLAUDE_TRANSCRIPT_GUTTER.length ? CLAUDE_TRANSCRIPT_GUTTER : "";
+		const gutter = isClaudeStyle() && width > CLAUDE_TRANSCRIPT_GUTTER.length ? CLAUDE_TRANSCRIPT_GUTTER : "";
 		const renderWidth = Math.max(1, width - gutter.length);
 		this.#lastRenderWidth = renderWidth;
 		const lines = super.render(renderWidth);
@@ -334,24 +334,17 @@ export class AssistantMessageComponent extends Container {
 	}
 
 	#thinkingDotsLabel(): string {
+		if (isClaudeStyle()) {
+			const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+			const glyph = frames[this.#thinkingDotsFrame % frames.length] ?? "⠋";
+			return theme.fg("dim", `${glyph} thinking...`);
+		}
 		const glyph = THINKING_DOTS_FRAMES[this.#thinkingDotsFrame % THINKING_DOTS_FRAMES.length] ?? "…";
 		const coloredGlyph = theme.fg("thinkingText", glyph);
 		const thinkingLabel = theme.fg("muted", " Thinking");
 		const rate = Math.min(SPEED_MAX, sharedSpeedTracker.getSpeed());
-		// The numeric badge ("<total> · <rate> toks/s") only renders while this block
-		// is genuinely streaming provider tokens. A block that has observed no token
-		// delta (e.g. a provider that reports usage only at turn end) or whose rate
-		// has decayed to zero (a streaming lull) drops it entirely — the persistent
-		// text label keeps the pulse descriptive for terminals and screen readers.
-		// The liveness flag also stops the session-wide gauge from leaking a previous
-		// turn's rate onto a fresh token-less block.
 		if (!this.#thinkingRateLive || rate < 0.05) return coloredGlyph + thinkingLabel;
-		// Total provider tokens, dimmed, sit next to the pulse.
 		const totalSpan = this.#thinkingTokens > 0 ? theme.fg("dim", ` · ${formatNumber(this.#thinkingTokens)}`) : "";
-		// Speed badge color: dim gray at rest, brightening toward the theme accent as
-		// streaming speed climbs (gray → bright accent). Ease (sqrt) so typical
-		// mid-stream rates already read as clearly accent-tinted instead of staying
-		// gray until the rarely-hit SPEED_MAX ceiling.
 		const ratio = Math.sqrt(rate / SPEED_MAX);
 		const hex = lerpHex(theme.getColorHex("dim"), theme.getAccentColorHex(), ratio);
 		const rateText = ` · ${rate.toFixed(1)} toks/s`;

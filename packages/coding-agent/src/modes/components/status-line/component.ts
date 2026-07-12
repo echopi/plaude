@@ -5,7 +5,7 @@ import type { AssistantMessage, UsageLimit, UsageReport } from "@oh-my-pi/pi-ai"
 import { type Component, truncateToWidth, visibleWidth } from "@oh-my-pi/pi-tui";
 import { getProjectDir } from "@oh-my-pi/pi-utils";
 import { settings } from "../../../config/settings";
-import { isLiteRender, useClaudeStatusLine } from "../../../lite/render-policy";
+import { isClaudeStyle, isLiteRender } from "../../../lite/render-policy";
 import type { AgentSession } from "../../../session/agent-session";
 import type { OAuthAccountIdentity } from "../../../session/auth-storage";
 import { limitMatchesActiveAccount } from "../../../slash-commands/helpers/active-oauth-account";
@@ -1103,7 +1103,7 @@ export class StatusLineComponent implements Component {
 		let rightSegments = useCustomSegments
 			? (this.#settings.rightSegments ?? presetDef.rightSegments)
 			: presetDef.rightSegments;
-		if (useClaudeStatusLine()) {
+		if (isClaudeStyle()) {
 			const claudeSegments: StatusLineSegmentId[] = [];
 			if (!leftSegments.includes("session_name") && !rightSegments.includes("session_name")) {
 				claudeSegments.push("session_name");
@@ -1122,6 +1122,9 @@ export class StatusLineComponent implements Component {
 			rightSegments,
 			separator: this.#settings.separator ?? presetDef.separator,
 			segmentOptions: mergedSegmentOptions,
+			// Lite preset defaults to compact thinking-level glyphs so the model
+			// segment stays short while still conveying the active level.
+			compactThinkingLevel: this.#settings.compactThinkingLevel ?? preset === "lite",
 		};
 	}
 
@@ -1151,6 +1154,22 @@ export class StatusLineComponent implements Component {
 			includeGit,
 			includePr,
 		);
+
+		// Claude style: plain text below prompt, dot separators, no background.
+		if (isClaudeStyle()) {
+			const allSegments = [...effectiveSettings.leftSegments, ...effectiveSettings.rightSegments];
+			const parts: string[] = [];
+			for (const segId of allSegments) {
+				const rendered = renderSegment(segId, ctx);
+				if (rendered.visible && rendered.content) {
+					parts.push(rendered.content);
+				}
+			}
+			if (parts.length === 0) return "";
+			const sep = theme.fg("dim", " · ");
+			const line = `  ${parts.join(sep)}`;
+			return truncateToWidth(line, width);
+		}
 		const separatorDef = getSeparator(effectiveSettings.separator ?? "powerline-thin", theme);
 
 		// `transparent` reuses the empty-string sentinel (`\x1b[49m`) so the bar
@@ -1329,25 +1348,30 @@ export class StatusLineComponent implements Component {
 
 	render(width: number): readonly string[] {
 		const lines: string[] = [];
-		if (useClaudeStatusLine()) {
+
+		// Hook statuses sit above the status bar so the bar stays adjacent
+		// to the prompt, giving the bottom of the screen a stable anchor.
+		const showHooks = this.#settings.showHookStatus ?? true;
+		if (showHooks && this.#hookStatuses.size > 0) {
+			const sortedStatuses = Array.from(this.#hookStatuses.entries())
+				.sort(([a], [b]) => a.localeCompare(b))
+				.map(([, text]) => sanitizeStatusText(text));
+			const hookLine = sortedStatuses.join(theme.fg("border", " · "));
+			// Dim hook statuses so they don't visually compete with the status bar.
+			lines.push(truncateToWidth(theme.fg("muted", hookLine), width));
+		}
+
+		if (isClaudeStyle()) {
 			const mainLine = this.#buildStatusLine(width);
 			if (mainLine) {
+				if (lines.length > 0) {
+					// Blank line separates hook statuses from the status bar.
+					lines.push("");
+				}
 				lines.push(truncateToWidth(mainLine, width));
 			}
 		}
 
-		// In the default layout, only hook statuses render here; the main status is
-		// embedded in the editor's top border.
-		const showHooks = this.#settings.showHookStatus ?? true;
-		if (!showHooks || this.#hookStatuses.size === 0) {
-			return lines;
-		}
-
-		const sortedStatuses = Array.from(this.#hookStatuses.entries())
-			.sort(([a], [b]) => a.localeCompare(b))
-			.map(([, text]) => sanitizeStatusText(text));
-		const hookLine = sortedStatuses.join(" ");
-		lines.push(truncateToWidth(hookLine, width));
 		return lines;
 	}
 }

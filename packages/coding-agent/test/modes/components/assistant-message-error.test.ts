@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import {
 	AssistantMessageComponent,
 	resetThinkingSpeedTracker,
@@ -67,6 +67,7 @@ beforeAll(async () => {
 beforeEach(async () => {
 	resetSettingsForTest();
 	await Settings.init({ inMemory: true });
+	settings.set("renderStyle", "omp");
 	setTerminalImageProtocol(null);
 });
 
@@ -127,16 +128,12 @@ describe("AssistantMessageComponent error rendering", () => {
 
 describe("AssistantMessageComponent Claude-style transcript gutter", () => {
 	function withClaudeStyle<T>(fn: () => T): T {
-		const previous = process.env.PLAUDE_STATUSLINE_STYLE;
-		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+		const prev = settings.get("renderStyle");
+		settings.set("renderStyle", "claude");
 		try {
 			return fn();
 		} finally {
-			if (previous === undefined) {
-				delete process.env.PLAUDE_STATUSLINE_STYLE;
-			} else {
-				process.env.PLAUDE_STATUSLINE_STYLE = previous;
-			}
+			settings.set("renderStyle", prev);
 		}
 	}
 

@@ -1,5 +1,5 @@
 {
-	"liteMode": true,
+	"renderStyle": "claude",
 	"theme.dark": "dark",
 	"theme.light": "light",
 	"statusLine.preset": "lite",

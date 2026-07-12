@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "bun:test";
 import type { Rule } from "@oh-my-pi/pi-coding-agent/capability/rule";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import { CustomMessageComponent } from "@oh-my-pi/pi-coding-agent/modes/components/custom-message";
 import { HookMessageComponent } from "@oh-my-pi/pi-coding-agent/modes/components/hook-message";
 import { SkillMessageComponent } from "@oh-my-pi/pi-coding-agent/modes/components/skill-message";
@@ -9,15 +10,17 @@ import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
 import type { CustomMessage, HookMessage, SkillPromptDetails } from "@oh-my-pi/pi-coding-agent/session/messages";
 
 beforeAll(async () => {
+	resetSettingsForTest();
+	await Settings.init({ inMemory: true });
 	await initTheme(false);
 });
 
 afterEach(() => {
-	delete process.env.PLAUDE_STATUSLINE_STYLE;
+	settings.set("renderStyle", "omp");
 });
 
 function renderClaude(component: { render(width: number): readonly string[] }): { raw: string; visible: string } {
-	process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+	settings.set("renderStyle", "claude");
 	const raw = component.render(120).join("\n");
 	return { raw, visible: Bun.stripANSI(raw) };
 }
@@ -26,7 +29,7 @@ function renderClaudeComponent(create: () => { render(width: number): readonly s
 	raw: string;
 	visible: string;
 } {
-	process.env.PLAUDE_STATUSLINE_STYLE = "claude";
+	settings.set("renderStyle", "claude");
 	return renderClaude(create());
 }
 

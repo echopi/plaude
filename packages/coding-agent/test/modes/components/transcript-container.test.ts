@@ -25,6 +25,12 @@ class MutableBlock implements Component {
 	}
 }
 
+class CompactToolBlock extends MutableBlock {
+	getTranscriptSpacingClass(): "compact-tool" {
+		return "compact-tool";
+	}
+}
+
 // A block that can declare itself still-mutating (a foreground tool awaiting its
 // result). The container must keep such a block in the repaintable live region —
 // even with finalized blocks below it — until it finalizes.
@@ -444,6 +450,16 @@ describe("TranscriptContainer spacing", () => {
 		container.addChild(new MutableBlock(["c"]));
 		// One separator between each block; none above the first.
 		expect(container.render(40)).toEqual(["a", "", "b", "", "c"]);
+	});
+
+	it("keeps consecutive Claude-style compact tool blocks adjacent", () => {
+		const container = new TranscriptContainer();
+		container.addChild(new CompactToolBlock(["  ✓ read(a)"]));
+		container.addChild(new CompactToolBlock(["  ✓ edit(b)"]));
+		container.addChild(new MutableBlock(["assistant"]));
+
+		expect(container.render(40)).toEqual(["  ✓ read(a)", "  ✓ edit(b)", "", "assistant"]);
+		expect(container.renderViewportTail(40, 10)).toEqual(["  ✓ read(a)", "  ✓ edit(b)", "", "assistant"]);
 	});
 
 	it("strips a block's plain-blank top/bottom padding", () => {

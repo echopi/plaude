@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import { AssistantMessageComponent } from "@oh-my-pi/pi-coding-agent/modes/components/assistant-message";
 import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
 import { type Component, Container, Markdown } from "@oh-my-pi/pi-tui";
@@ -86,34 +86,27 @@ describe("AssistantMessageComponent streaming fast path", () => {
 		expect(rendered).not.toContain(". . .");
 	});
 
-	it("uses plain markdown table and quote symbols in lite mode", async () => {
-		const originalLiteRenderTest = process.env.OMP_LITE_RENDER_TEST;
-		process.env.OMP_LITE_RENDER_TEST = "1";
+	it("uses plain markdown table and quote symbols in claude render style", async () => {
 		resetSettingsForTest();
 		await Settings.init({ inMemory: true });
-		try {
-			const rendered = Bun.stripANSI(
-				teardownRender(
-					msg([
-						{
-							type: "text",
-							text: ["> note", "", "| Name | Score |", "| --- | --- |", "| alpha | 1 |"].join("\n"),
-						},
-					]),
-				),
-			);
+		settings.set("renderStyle", "claude");
 
-			expect(rendered).toContain("> note");
-			expect(rendered).toContain("+");
-			expect(rendered).not.toContain("│");
-			expect(rendered).not.toContain("┌");
-		} finally {
-			if (originalLiteRenderTest === undefined) {
-				delete process.env.OMP_LITE_RENDER_TEST;
-			} else {
-				process.env.OMP_LITE_RENDER_TEST = originalLiteRenderTest;
-			}
-		}
+		const rendered = Bun.stripANSI(
+			teardownRender(
+				msg([
+					{
+						type: "text",
+						text: ["> note", "", "| Name | Score |", "| --- | --- |", "| alpha | 1 |"].join("\n"),
+					},
+				]),
+			),
+		);
+
+		expect(rendered).toContain("> note");
+		// Claude style uses plainTables which renders as status lists, not ASCII grids
+		expect(rendered).toContain("alpha");
+		expect(rendered).not.toContain("│");
+		expect(rendered).not.toContain("┌");
 	});
 
 	it("matches teardown for a single growing text block", () => {

@@ -74,7 +74,7 @@ import { loadSlashCommands } from "../extensibility/slash-commands";
 import { type GuidedGoalMessage, runGuidedGoalTurn } from "../goals/guided-setup";
 import type { Goal, GoalModeState } from "../goals/state";
 import { resolveLocalUrlToPath } from "../internal-urls";
-import { useClaudeStatusLine } from "../lite/render-policy";
+import { isClaudeStyle } from "../lite/render-policy";
 import { LSP_STARTUP_EVENT_CHANNEL, type LspStartupEvent } from "../lsp/startup-events";
 import type { MCPManager } from "../mcp";
 import {
@@ -702,7 +702,11 @@ export class InteractiveMode implements InteractiveModeContext {
 			logger.warn("History storage unavailable", { error: String(error) });
 		}
 		this.hookWidgetContainerAbove = new Container();
-		this.hookWidgetContainerAbove.addChild(new Spacer(1));
+		// Claude-style status renders the bar inline just above the editor — no
+		// gap between the bar and the prompt so they read as one unit.
+		if (!isClaudeStyle()) {
+			this.hookWidgetContainerAbove.addChild(new Spacer(1));
+		}
 		this.hookWidgetContainerBelow = new Container();
 		this.editorContainer = new Container();
 		this.editorContainer.addChild(this.editor);
@@ -886,7 +890,9 @@ export class InteractiveMode implements InteractiveModeContext {
 			);
 
 			// Setup UI layout
-			this.ui.addChild(new Spacer(1));
+			if (!isClaudeStyle()) {
+				this.ui.addChild(new Spacer(1));
+			}
 			this.ui.addChild(this.#welcomeComponent);
 			this.ui.addChild(new Spacer(1));
 			if (!options.suppressWelcomeIntro) {
@@ -895,19 +901,25 @@ export class InteractiveMode implements InteractiveModeContext {
 
 			// Add changelog if provided
 			if (this.#changelogMarkdown) {
-				this.ui.addChild(new DynamicBorder());
+				if (!isClaudeStyle()) {
+					this.ui.addChild(new DynamicBorder());
+				}
 				if (settings.get("collapseChangelog")) {
 					const versionMatch = this.#changelogMarkdown.match(/##\s+\[?(\d+\.\d+\.\d+)\]?/);
 					const latestVersion = versionMatch ? versionMatch[1] : this.#version;
 					const condensedText = `Updated to v${latestVersion}. Use ${theme.bold("/changelog")} to view full changelog.`;
-					this.ui.addChild(new Text(condensedText, 1, 0));
+					this.ui.addChild(
+						new Text(isClaudeStyle() ? `  ${condensedText}` : condensedText, isClaudeStyle() ? 0 : 1, 0),
+					);
 				} else {
 					this.ui.addChild(new Text(theme.bold(theme.fg("accent", "What's New")), 1, 0));
 					this.ui.addChild(new Spacer(1));
 					this.ui.addChild(new Markdown(this.#changelogMarkdown.trim(), 1, 0, getMarkdownTheme()));
 					this.ui.addChild(new Spacer(1));
 				}
-				this.ui.addChild(new DynamicBorder());
+				if (!isClaudeStyle()) {
+					this.ui.addChild(new DynamicBorder());
+				}
 			}
 		}
 
@@ -923,9 +935,14 @@ export class InteractiveMode implements InteractiveModeContext {
 		// HUDs, just above the editor's hook-widget top margin — so it reads next to
 		// the prompt while keeping the one-line gap above the editor.
 		this.ui.addChild(this.statusContainer);
-		this.ui.addChild(this.statusLine); // Only renders hook statuses (main status in editor border)
+		if (!isClaudeStyle()) {
+			this.ui.addChild(this.statusLine);
+		}
 		this.ui.addChild(this.hookWidgetContainerAbove);
 		this.ui.addChild(this.editorContainer);
+		if (isClaudeStyle()) {
+			this.ui.addChild(this.statusLine);
+		}
 		this.ui.addChild(this.hookWidgetContainerBelow);
 		this.ui.setFocus(this.editor);
 
@@ -1520,9 +1537,9 @@ export class InteractiveMode implements InteractiveModeContext {
 	}
 
 	#configureEditorStatusChrome(editor: CustomEditor): void {
-		if (useClaudeStatusLine()) {
+		if (isClaudeStyle()) {
 			editor.setBorderVisible(false);
-			editor.setPromptGutter(`${theme.fg("accent", "❯")} `);
+			editor.setPromptGutter(`${theme.fg("accent", ">")} `);
 			editor.setTopBorderProvider(undefined);
 			return;
 		}

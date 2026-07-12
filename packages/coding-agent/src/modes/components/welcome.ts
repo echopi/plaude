@@ -8,6 +8,7 @@ import {
 	wrapTextWithAnsi,
 } from "@oh-my-pi/pi-tui";
 import { APP_NAME } from "@oh-my-pi/pi-utils";
+import { isClaudeStyle } from "../../lite/render-policy";
 import { theme } from "../../modes/theme/theme";
 import tipsText from "./tips.txt" with { type: "text" };
 
@@ -178,6 +179,7 @@ export class WelcomeComponent implements Component {
 	 * subsequent calls reset and replay.
 	 */
 	playIntro(requestRender: () => void): void {
+		if (isClaudeStyle()) return;
 		this.#stopAnimation();
 		this.#animStart = performance.now();
 		requestRender();
@@ -232,8 +234,15 @@ export class WelcomeComponent implements Component {
 		return lines;
 	}
 
+	#renderClaudeWelcome(termWidth: number): string[] {
+		const model = theme.fg("muted", this.modelName);
+		const provider = theme.fg("dim", this.providerName);
+		return [truncateToWidth(`  ${model} ${provider}`, termWidth)];
+	}
+
 	#renderLines(termWidth: number): string[] {
-		// Box dimensions - responsive with max width and small-terminal support
+		if (isClaudeStyle()) return this.#renderClaudeWelcome(termWidth);
+
 		const maxWidth = 100;
 		const boxWidth = Math.min(maxWidth, Math.max(0, termWidth - 2));
 		if (boxWidth < 4) {

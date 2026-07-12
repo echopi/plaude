@@ -161,7 +161,7 @@ describe("task live progress rendering", () => {
 	});
 
 	it("strips bash footer notices from expanded subagent recent output", () => {
-		settings.set("liteMode", false);
+		settings.set("renderStyle", "omp");
 		setViewportRows(40);
 		const chronological = [
 			"line 1",
@@ -187,7 +187,7 @@ describe("task live progress rendering", () => {
 	});
 
 	it("caps collapsed nested task progress at four rows plus an elision line", () => {
-		settings.set("liteMode", false);
+		settings.set("renderStyle", "omp");
 		setViewportRows(40);
 		const text = renderProgressText(makeParentWithNestedProgress(6), false, uiTheme);
 
@@ -201,7 +201,7 @@ describe("task live progress rendering", () => {
 	});
 
 	it("shows every nested task progress row when expanded", () => {
-		settings.set("liteMode", false);
+		settings.set("renderStyle", "omp");
 		setViewportRows(40);
 		const text = renderProgressText(makeParentWithNestedProgress(6), true, uiTheme);
 
@@ -212,7 +212,7 @@ describe("task live progress rendering", () => {
 	});
 
 	it("caps collapsed finalized nested task results and keeps the failed child visible", () => {
-		settings.set("liteMode", false);
+		settings.set("renderStyle", "omp");
 		setViewportRows(40);
 		const text = renderResultText(makeParentWithNestedResults(6), false, uiTheme);
 

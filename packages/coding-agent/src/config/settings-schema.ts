@@ -36,6 +36,7 @@ import {
 } from "../tts/models";
 import { EDIT_MODES } from "../utils/edit-mode";
 import { SEARCH_PROVIDER_OPTIONS, SEARCH_PROVIDER_PREFERENCES, type SearchProviderId } from "../web/search/types";
+import liteDefaults from "./lite-defaults.json" with { type: "json" };
 import {
 	SERVICE_TIER_ANTHROPIC_OPTIONS,
 	SERVICE_TIER_ANTHROPIC_VALUES,
@@ -346,7 +347,16 @@ export const SETTINGS_SCHEMA = {
 	"auth.broker.url": { type: "string", default: undefined },
 	"auth.broker.token": { type: "string", default: undefined },
 
-	liteMode: { type: "boolean", default: true },
+	renderStyle: {
+		type: "enum",
+		values: ["claude", "omp"] as const,
+		default: "omp" as const,
+		ui: {
+			tab: "appearance",
+			label: "Render Style",
+			description: "claude: restrained Claude Code-like TUI. omp: full oh-my-pi rendering.",
+		},
+	},
 
 	autoResume: {
 		type: "boolean",
@@ -5014,6 +5024,9 @@ export type SettingValue<P extends SettingPath> = Schema[P] extends { type: "boo
 
 /** Get the default value for a setting path */
 export function getDefault<P extends SettingPath>(path: P): SettingValue<P> {
+	if (process.env.PLAUDE === "1" && path in liteDefaults) {
+		return liteDefaults[path as keyof typeof liteDefaults] as SettingValue<P>;
+	}
 	return SETTINGS_SCHEMA[path].default as SettingValue<P>;
 }
 

@@ -16,10 +16,9 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
-	delete process.env.OMP_LITE_RENDER_TEST;
-	resetSettingsForTest();
 	geometryStub?.restore();
 	geometryStub = undefined;
+	resetSettingsForTest();
 });
 
 function stubStdoutGeometry(cols: number): { restore(): void } {
@@ -69,7 +68,7 @@ function focusMemoryTab(comp: SettingsSelectorComponent): void {
 
 describe("SettingsSelectorComponent memory tab", () => {
 	it("folds non-core settings behind Advanced in lite mode", () => {
-		process.env.OMP_LITE_RENDER_TEST = "1";
+		settings.set("renderStyle", "claude");
 		const comp = createSelector();
 
 		const rendered = stripAnsi(comp.render(70).join("\n"));
@@ -82,10 +81,10 @@ describe("SettingsSelectorComponent memory tab", () => {
 	});
 
 	it("opens the full tab list from Advanced in lite mode", () => {
-		process.env.OMP_LITE_RENDER_TEST = "1";
+		settings.set("renderStyle", "claude");
 		const comp = createSelector();
 
-		for (let i = 0; i < 3; i++) {
+		for (let i = 0; i < 4; i++) {
 			comp.handleInput("\x1b[B");
 		}
 		comp.handleInput("\n");
@@ -96,8 +95,7 @@ describe("SettingsSelectorComponent memory tab", () => {
 	});
 
 	it("keeps the original settings list when lite mode is disabled", () => {
-		process.env.OMP_LITE_RENDER_TEST = "1";
-		settings.set("liteMode", false);
+		settings.set("renderStyle", "omp");
 		const comp = createSelector();
 
 		const rendered = stripAnsi(comp.render(70).join("\n"));
@@ -106,6 +104,7 @@ describe("SettingsSelectorComponent memory tab", () => {
 	});
 
 	it("reveals condition-gated Hindsight rows the moment memory.backend changes via the submenu", () => {
+		settings.set("renderStyle", "omp");
 		settings.set("memory.backend", "off");
 		const comp = createSelector();
 		focusMemoryTab(comp);
@@ -130,6 +129,7 @@ describe("SettingsSelectorComponent memory tab", () => {
 	});
 
 	it("hides Hindsight rows again when the backend is switched back to off without leaving the tab", () => {
+		settings.set("renderStyle", "omp");
 		settings.set("memory.backend", "hindsight");
 		const comp = createSelector();
 		focusMemoryTab(comp);
@@ -177,6 +177,7 @@ describe("SettingsSelectorComponent memory tab", () => {
 	});
 
 	it("puts the exact global settings search hit before incidental matches", () => {
+		settings.set("renderStyle", "omp");
 		const comp = createSelector();
 		for (const ch of "image provider") comp.handleInput(ch);
 

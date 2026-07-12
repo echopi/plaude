@@ -12,7 +12,7 @@ import type { TUI } from "@oh-my-pi/pi-tui";
 describe("ToolExecutionComponent live preview spinners", () => {
 	beforeAll(async () => {
 		resetSettingsForTest();
-		await Settings.init({ inMemory: true, overrides: { liteMode: false } });
+		await Settings.init({ inMemory: true, overrides: { renderStyle: "omp" } });
 		await initTheme();
 	});
 
