@@ -35,6 +35,7 @@ import {
 	TTS_LOCAL_VOICE_VALUES,
 } from "../tts/models";
 import { EDIT_MODES } from "../utils/edit-mode";
+import liteDefaults from "./lite-defaults.json" with { type: "json" };
 import { SEARCH_PROVIDER_OPTIONS, SEARCH_PROVIDER_PREFERENCES, type SearchProviderId } from "../web/search/types";
 import {
 	SERVICE_TIER_ANTHROPIC_OPTIONS,
@@ -5128,6 +5129,10 @@ export type SettingValue<P extends SettingPath> = Schema[P] extends { type: "boo
 
 /** Get the default value for a setting path */
 export function getDefault<P extends SettingPath>(path: P): SettingValue<P> {
+	const plaudeRuntime = process.env.PLAUDE === "1" || process.env.PLAUDE_STATUSLINE_STYLE === "claude";
+	if (plaudeRuntime && path in liteDefaults) {
+		return liteDefaults[path as keyof typeof liteDefaults] as SettingValue<P>;
+	}
 	return SETTINGS_SCHEMA[path].default as SettingValue<P>;
 }
 
