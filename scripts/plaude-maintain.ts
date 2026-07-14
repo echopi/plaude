@@ -106,7 +106,12 @@ export function classifyRelease(state: MaintainerState, release: GitHubRelease) 
 }
 
 export function buildVerificationCommands(changedPaths: string[]): string[][] {
-	const commands: string[][] = [["bun", "install", "--frozen-lockfile"], ["bun", "check"], FORK_REGRESSION_COMMAND];
+	const commands: string[][] = [
+		["bun", "install", "--frozen-lockfile"],
+		["bun", "check"],
+		["bun", "scripts/prepare-maintenance-native.ts"],
+		FORK_REGRESSION_COMMAND,
+	];
 	const forkRegressions = new Set(FORK_REGRESSION_COMMAND.slice(2));
 	const changedTests = [...new Set(changedPaths)]
 		.filter(changedPath => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(changedPath))

@@ -80,6 +80,7 @@ describe("buildVerificationCommands", () => {
 		expect(commands.map(command => command.join(" "))).toEqual([
 			"bun install --frozen-lockfile",
 			"bun check",
+			"bun scripts/prepare-maintenance-native.ts",
 			"bun test packages/ai/test/openai-codex-stream.test.ts packages/coding-agent/test/sdk-mcp-notification-uri.test.ts packages/coding-agent/test/lite-render-policy.test.ts packages/coding-agent/test/lite-theme-filter.test.ts",
 			"bun test packages/catalog/test/codex-discovery.test.ts packages/tui/test/markdown.test.ts",
 		]);
