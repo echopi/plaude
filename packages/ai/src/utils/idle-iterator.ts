@@ -100,10 +100,9 @@ export function getOpenAIStreamFirstEventTimeoutMs(
  * deltas actively flowing). This arms a `clearTimeout`-able timer instead;
  * callers MUST `clear()` as soon as `fetchWithRetry` resolves (headers in) so
  * the body stream is left to the iterator-level idle watchdog. The timer aborts
- * with a `TimeoutError` matching `AbortSignal.timeout`, so a genuine pre-response
- * stall behaves exactly as the prior code did — `fetchWithRetry` normalizes the
- * abort to "Request was aborted" either way (only a post-headers abort ever
- * surfaced the raw `"The operation timed out."`, which clearing now prevents).
+ * with a `TimeoutError` matching `AbortSignal.timeout`; provider callers can use
+ * `signal.reason` to distinguish this watchdog from explicit caller cancellation
+ * even when a lower transport layer normalizes both aborts to the same error.
  *
  * Returns the caller signal unchanged (and a no-op `clear`) when no positive
  * timeout is configured.

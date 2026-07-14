@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- Fixed OpenAI Codex SSE idle and first-event watchdogs surfacing a generic `Request was aborted` message by preserving the specific timeout reason through transport cancellation and error finalization.
+- Fixed OpenAI Codex SSE idle and first-event watchdogs, including stalls before response headers, surfacing a generic `Request was aborted` message by preserving the specific timeout reason through transport cancellation and error finalization.
 ## [16.5.0] - 2026-07-13
 
 ### Added

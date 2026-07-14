@@ -164,6 +164,24 @@ function createNoProgressCodexSse(signal: AbortSignal | undefined): Response {
 	return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } });
 }
 
+function createPreResponseStallFetch(onSignal?: (signal: AbortSignal | undefined) => void): FetchImpl {
+	return (_input: string | URL | Request, init?: RequestInit) => {
+		const signal = getRequestSignal(_input, init);
+		onSignal?.(signal);
+		const { promise, reject } = Promise.withResolvers<Response>();
+		const rejectFromAbort = (): void => {
+			const reason = signal?.reason;
+			reject(reason instanceof Error ? reason : new Error("request aborted"));
+		};
+		if (signal?.aborted) {
+			queueMicrotask(rejectFromAbort);
+		} else {
+			signal?.addEventListener("abort", rejectFromAbort, { once: true });
+		}
+		return promise;
+	};
+}
+
 function encodeWebSocketMessage(value: Record<string, unknown>): Uint8Array {
 	return new TextEncoder().encode(JSON.stringify(value));
 }
@@ -1004,6 +1022,46 @@ describe("openai-codex streaming", () => {
 		if (!(transportSignal?.reason instanceof Error))
 			throw new Error("Expected the request signal to carry an Error reason");
 		expect(transportSignal.reason.message).toBe("OpenAI Codex SSE stream stalled while waiting for the next event");
+	});
+
+	it("surfaces the SSE first-event timeout when fetch stalls before response headers", async () => {
+		const tempDir = TempDir.createSync("@pi-codex-stream-");
+		setAgentDir(tempDir.path());
+		const token = createCodexTestToken();
+		let transportSignal: AbortSignal | undefined;
+		const model = { ...createCodexTestModel("https://chatgpt.com/backend-api"), preferWebsockets: false };
+		const result = await streamOpenAICodexResponses(model, createCodexTestContext(), {
+			fetch: createPreResponseStallFetch(signal => {
+				transportSignal = signal;
+			}),
+			apiKey: token,
+			streamFirstEventTimeoutMs: 20,
+		}).result();
+
+		expect(result.stopReason).toBe("error");
+		expect(result.errorMessage).toBe("OpenAI Codex SSE stream timed out while waiting for the first event");
+		const transportReason = transportSignal?.reason;
+		expect(transportReason).toBeInstanceOf(DOMException);
+		if (!(transportReason instanceof DOMException)) throw new Error("Expected the transport timeout reason");
+		expect(transportReason.name).toBe("TimeoutError");
+	});
+
+	it("keeps explicit caller cancellation distinct from a pre-response timeout", async () => {
+		const tempDir = TempDir.createSync("@pi-codex-stream-");
+		setAgentDir(tempDir.path());
+		const token = createCodexTestToken();
+		const controller = new AbortController();
+		setTimeout(() => controller.abort(), 20);
+		const model = { ...createCodexTestModel("https://chatgpt.com/backend-api"), preferWebsockets: false };
+		const result = await streamOpenAICodexResponses(model, createCodexTestContext(), {
+			fetch: createPreResponseStallFetch(),
+			apiKey: token,
+			signal: controller.signal,
+			streamFirstEventTimeoutMs: 1_000,
+		}).result();
+
+		expect(result.stopReason).toBe("aborted");
+		expect(result.errorMessage).not.toBe("OpenAI Codex SSE stream timed out while waiting for the first event");
 	});
 
 	it("waits for caller abort when SSE streams only no-progress status events", async () => {

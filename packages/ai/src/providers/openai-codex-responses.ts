@@ -230,6 +230,7 @@ const CODEX_WEBSOCKET_IDLE_TIMEOUT_MS = Number($env.PI_CODEX_WEBSOCKET_IDLE_TIME
  * a chance on the WS transport before falling through.
  */
 const CODEX_WEBSOCKET_FIRST_EVENT_TIMEOUT_MS = Number($env.PI_CODEX_WEBSOCKET_FIRST_EVENT_TIMEOUT_MS || 60_000);
+const CODEX_SSE_FIRST_EVENT_TIMEOUT_MESSAGE = "OpenAI Codex SSE stream timed out while waiting for the first event";
 const CODEX_WEBSOCKET_RETRY_BUDGET = Number($env.PI_CODEX_WEBSOCKET_RETRY_BUDGET || CODEX_MAX_RETRIES);
 const CODEX_WEBSOCKET_RETRY_DELAY_MS = Number($env.PI_CODEX_WEBSOCKET_RETRY_DELAY_MS || CODEX_RETRY_DELAY_MS);
 const CODEX_WEBSOCKET_TRANSPORT_ERROR_PREFIX = "Codex websocket transport error";
@@ -1164,9 +1165,7 @@ function createRequestSetup(options: OpenAICodexResponsesOptions | undefined): C
 	const websocketIdleTimeoutMs = options?.streamIdleTimeoutMs ?? CODEX_WEBSOCKET_IDLE_TIMEOUT_MS;
 	const firstEventTimeoutMs = options?.streamFirstEventTimeoutMs ?? getOpenAIStreamFirstEventTimeoutMs(idleTimeoutMs);
 	const websocketFirstEventTimeoutMs = options?.streamFirstEventTimeoutMs ?? CODEX_WEBSOCKET_FIRST_EVENT_TIMEOUT_MS;
-	const firstEventTimeoutAbortError = new AIError.StreamTimeoutError(
-		"OpenAI Codex SSE stream timed out while waiting for the first event",
-	);
+	const firstEventTimeoutAbortError = new AIError.StreamTimeoutError(CODEX_SSE_FIRST_EVENT_TIMEOUT_MESSAGE);
 	const idleTimeoutAbortError = new AIError.StreamTimeoutError(
 		"OpenAI Codex SSE stream stalled while waiting for the next event",
 	);
@@ -3749,6 +3748,12 @@ async function openCodexSseEventStream(
 			fetch: fetchOverride,
 			timeout: false,
 		});
+	} catch (error) {
+		const watchdogReason = watchdog.signal?.reason;
+		if (!signal?.aborted && watchdogReason instanceof Error && watchdogReason.name === "TimeoutError") {
+			throw new AIError.StreamTimeoutError(CODEX_SSE_FIRST_EVENT_TIMEOUT_MESSAGE, { cause: watchdogReason });
+		}
+		throw error;
 	} finally {
 		watchdog.clear();
 	}
