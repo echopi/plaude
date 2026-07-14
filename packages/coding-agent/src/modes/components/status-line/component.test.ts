@@ -72,6 +72,7 @@ describe("StatusLineComponent", () => {
 
 	it("renders Prewalk annotation when prewalk is armed", () => {
 		const statusLine = new StatusLineComponent(makeSessionWithLastMessage(null, true) as unknown as AgentSession);
+		statusLine.updateSettings({ preset: "default" });
 
 		// By default preset, 'mode' segment is included in left/right segments.
 		// Let's get the border and see if Prewalk is rendered.
