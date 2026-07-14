@@ -467,6 +467,15 @@ export class SessionManager {
 		this.#diskFailureLogged = false;
 	}
 
+	#prepareDiskRecovery(): boolean {
+		if (!this.#diskFailure) return false;
+		this.#closeWriterEventually();
+		this.#clearDiskError();
+		this.#fileIsCurrent = false;
+		this.#rewriteRequired = true;
+		return true;
+	}
+
 	#noteDiskFailure(errorLike: unknown): Error {
 		const error = toError(errorLike);
 		if (!this.#diskFailure) this.#diskFailure = error;
@@ -671,7 +680,7 @@ export class SessionManager {
 
 	#appendToSessionFile(entry: SessionEntry): void {
 		if (!this.#persist || !this.#sessionFile) return;
-		if (this.#diskFailure) throw this.#diskFailure;
+		this.#prepareDiskRecovery();
 
 		// Lazy gate: a brand-new session is not written until it has an assistant
 		// message (or someone forced creation), so sessions that never produce
@@ -707,9 +716,10 @@ export class SessionManager {
 		// A mid-close writer leaves `#writer` undefined, so `#appendWriter` simply
 		// opens a fresh append handle and the entry still lands.
 		try {
-			void this.#appendWriter()
-				.append(this.#lineFor(entry))
-				.catch(err => this.#noteDiskFailure(err));
+			const writer = this.#appendWriter();
+			void writer.append(this.#lineFor(entry)).catch(err => {
+				if (!writer.getError()) this.#noteDiskFailure(err);
+			});
 		} catch (err) {
 			this.#noteDiskFailure(err);
 		}
@@ -717,7 +727,10 @@ export class SessionManager {
 
 	async #persistTitleChangeEntry(entry: TitleChangeEntry, update: SessionTitleUpdate): Promise<void> {
 		if (!this.#persist || !this.#sessionFile) return;
-		if (this.#diskFailure) throw this.#diskFailure;
+		if (this.#prepareDiskRecovery()) {
+			await this.#rewriteAtomically();
+			return;
+		}
 
 		if (!this.#shouldHaveSessionFile()) {
 			this.#fileIsCurrent = false;
@@ -1177,6 +1190,7 @@ export class SessionManager {
 	async ensureOnDisk(): Promise<void> {
 		if (!this.#persist || !this.#sessionFile) return;
 		this.#forceFileCreation = true;
+		this.#prepareDiskRecovery();
 		if (this.#fileIsCurrent && !this.#rewriteRequired) return;
 		await this.#rewriteAtomically();
 	}
@@ -1184,6 +1198,7 @@ export class SessionManager {
 	/** Flush pending writes. Call before switching sessions or on shutdown. */
 	async flush(): Promise<void> {
 		if (!this.#persist || !this.#sessionFile) return;
+		if (this.#prepareDiskRecovery()) await this.#rewriteAtomically();
 		await this.#scheduleDiskWork(async () => {
 			if (this.#writer?.isOpen()) await this.#writer.flush();
 		});
@@ -1201,7 +1216,7 @@ export class SessionManager {
 	 */
 	flushSync(): void {
 		if (!this.#persist || !this.#sessionFile) return;
-		if (this.#diskFailure) throw this.#diskFailure;
+		this.#prepareDiskRecovery();
 		if (this.#fileIsCurrent && !this.#rewriteRequired) {
 			const writerError = this.#writer?.getError();
 			if (writerError) throw writerError;
@@ -1246,6 +1261,7 @@ export class SessionManager {
 	/** Flush, then close the append writer. */
 	async close(): Promise<void> {
 		if (!this.#persist) return;
+		if (this.#prepareDiskRecovery()) await this.#rewriteAtomically();
 		await this.#scheduleDiskWork(async () => {
 			const hadWriter = this.#writer !== undefined;
 			await this.#closeWriterHandle();

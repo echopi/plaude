@@ -5,6 +5,8 @@
 ### Fixed
 
 - Fixed MCP resource notifications showing an unusable generic `mcp://<uri>` hint when a resource URI contains its own scheme; notifications now include the exact `read(path=...)` target.
+- Fixed active sessions remaining permanently unwritable after transient storage failures by reopening the poisoned writer and atomically restoring all in-memory entries before append, rename, flush, close, or fork continues.
+
 ## [16.4.8] - 2026-07-12
 ## [16.5.0] - 2026-07-13
 
