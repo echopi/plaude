@@ -104,6 +104,10 @@ export function getOpenAIStreamFirstEventTimeoutMs(
  * `signal.reason` to distinguish this watchdog from explicit caller cancellation
  * even when a lower transport layer normalizes both aborts to the same error.
  *
+ * Retrying callers MUST arm a fresh guard for each transport attempt and keep
+ * the retry loop's base signal reserved for caller cancellation. Reusing the
+ * guard as the loop signal makes its timeout indistinguishable from cancellation.
+ *
  * Returns the caller signal unchanged (and a no-op `clear`) when no positive
  * timeout is configured.
  */

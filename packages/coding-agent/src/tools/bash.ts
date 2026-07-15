@@ -403,7 +403,7 @@ export class BashTool implements AgentTool<typeof bashSchemaBase | typeof bashSc
 			hasGrep: isToolActive("grep", this.session.settings.get("grep.enabled")),
 			hasGlob: isToolActive("glob", this.session.settings.get("glob.enabled")),
 			hasRead: isToolActive("read", true),
-			hasLaunch: isToolActive("launch", this.session.settings.get("launch.enabled")),
+			hasLaunch: isToolActive("hub", this.session.settings.get("launch.enabled")),
 			hasEval: isToolActive(
 				"eval",
 				evalBackends.python || evalBackends.js || evalBackends.ruby || evalBackends.julia,
@@ -751,6 +751,7 @@ export class BashTool implements AgentTool<typeof bashSchemaBase | typeof bashSc
 		const internalUrlOptions: InternalUrlExpansionOptions = {
 			skills: this.session.skills ?? [],
 			internalRouter: InternalUrlRouter.instance(),
+			cwd: this.session.cwd,
 			localOptions: {
 				getArtifactsDir: this.session.getArtifactsDir,
 				getSessionId: this.session.getSessionId,
