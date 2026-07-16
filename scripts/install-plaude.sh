@@ -91,7 +91,7 @@ if [ -z "\${PI_PROXY:-}" ] && command -v nc >/dev/null 2>&1 && nc -z 127.0.0.1 7
 	PI_PROXY="http://127.0.0.1:7897"
 fi
 export PI_PROXY
-exec bun --cwd "$REPO_DIR/packages/coding-agent" src/cli.ts "\$@"
+exec bun "$REPO_DIR/packages/coding-agent/src/cli.ts" "\$@"
 EOF
 chmod +x "$WRAPPER"
 
