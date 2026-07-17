@@ -107,17 +107,32 @@ function buildTransports(opts: { console?: boolean; file?: boolean | string }): 
 function getWinstonLogger(): winston.Logger {
 	if (!winstonLogger) {
 		const transports = buildTransports(transportOpts);
-		winstonLogger = winston.createLogger({
+		const instance = winston.createLogger({
 			level: "debug",
 			format: getLogFormat(),
-			transports,
+			transports: [],
+			// Don't exit on handled exceptions - logging failures shouldn't crash the app.
+			exitOnError: false,
 			// A transport-less winston logger console.warns "Attempt to write logs
 			// with no transports" on every emit; mark it silent instead so disabling
 			// all transports is a clean no-op.
 			silent: transports.length === 0,
-			// Don't exit on error - logging failures shouldn't crash the app
-			exitOnError: false,
 		});
+		// Winston re-emits transport failures as EventEmitter "error" events.
+		// exitOnError does not consume those events; without this boundary, a full
+		// log volume turns a recoverable ENOSPC into an uncaught exception.
+		instance.on("error", (error: unknown, transport?: winston.transport) => {
+			if (transport) transport.silent = true;
+			try {
+				const transportName = transport?.constructor.name ?? "unknown";
+				const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+				fs.writeSync(2, `[omp] Log transport failure (${transportName}); transport disabled: ${detail}\n`);
+			} catch {
+				// fd 2 may share the failed volume or be unavailable; never recurse through logger.
+			}
+		});
+		for (const transport of transports) instance.add(transport);
+		winstonLogger = instance;
 	}
 	return winstonLogger;
 }
