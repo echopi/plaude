@@ -76,6 +76,7 @@ cat >"$WRAPPER" <<EOF
 #!/bin/sh
 export PLAUDE=1
 export PI_CODEX_WEBSOCKET="\${PI_CODEX_WEBSOCKET:-0}"
+export PI_ALLOW_HOME="\${PI_ALLOW_HOME:-1}"
 if [ -z "\${PI_PROXY:-}" ]; then
 	PI_PROXY="\${HTTPS_PROXY:-\${HTTP_PROXY:-}}"
 fi

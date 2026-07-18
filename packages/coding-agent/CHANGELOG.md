@@ -7,6 +7,7 @@
 - Fixed MCP resource notifications showing an unusable generic `mcp://<uri>` hint when a resource URI contains its own scheme; notifications now include the exact `read(path=...)` target.
 - Fixed active sessions remaining permanently unwritable after transient storage failures by reopening the poisoned writer and atomically restoring all in-memory entries before append, rename, flush, close, or fork continues.
 - Fixed the Plaude source-install wrapper changing the agent working directory to the coding-agent package instead of preserving the directory where `plaude` was launched.
+- Added a `PI_ALLOW_HOME=1` environment gate (exported by the Plaude wrapper by default) that keeps sessions launched from `$HOME` in `$HOME` instead of silently auto-chdiring to `~/tmp`.
 
 ## [16.4.8] - 2026-07-12
 ## [17.0.0] - 2026-07-15
