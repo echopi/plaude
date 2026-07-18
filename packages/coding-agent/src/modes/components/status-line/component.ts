@@ -1366,12 +1366,11 @@ export class StatusLineComponent implements Component {
 		// to the prompt, giving the bottom of the screen a stable anchor.
 		const showHooks = this.#settings.showHookStatus ?? true;
 		if (showHooks && this.#hookStatuses.size > 0) {
-			const sortedStatuses = Array.from(this.#hookStatuses.entries())
-				.sort(([a], [b]) => a.localeCompare(b))
-				.map(([, text]) => sanitizeStatusText(text));
-			const hookLine = sortedStatuses.join(theme.fg("border", " · "));
-			// Dim hook statuses so they don't visually compete with the status bar.
-			lines.push(truncateToWidth(theme.fg("muted", hookLine), width));
+			lines.push(
+				...Array.from(this.#hookStatuses.entries())
+					.sort(([a], [b]) => a.localeCompare(b))
+					.map(([, text]) => truncateToWidth(sanitizeStatusText(text), width)),
+			);
 		}
 
 		if (isClaudeStyle()) {
