@@ -4,7 +4,9 @@ import { directoryExists, getProjectDir, normalizePathForComparison, setProjectD
 import type { Args } from "./args";
 
 async function maybeAutoChdir(parsed: Args): Promise<void> {
-	if (parsed.allowHome || parsed.cwd) {
+	// PI_ALLOW_HOME=1 (set by the Plaude wrapper) keeps sessions launched from
+	// $HOME in $HOME instead of silently redirecting to ~/tmp.
+	if (parsed.allowHome || parsed.cwd || process.env.PI_ALLOW_HOME === "1") {
 		return;
 	}
 
