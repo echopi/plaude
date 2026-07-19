@@ -6,9 +6,6 @@ import type { AssistantThinkingRenderer } from "../../extensibility/extensions/t
 import { getLiteMarkdownTheme } from "../../lite/lite-markdown-theme";
 import { useClaudeStatusLine } from "../../lite/render-policy";
 import { getMarkdownTheme, theme } from "../../modes/theme/theme";
-import { getLiteMarkdownTheme } from "../../lite/lite-markdown-theme";
-import { useClaudeStatusLine } from "../../lite/render-policy";
-import { theme } from "../../modes/theme/theme";
 import { getPreviewLines, resolveImageOptions, TRUNCATE_LENGTHS } from "../../tools/render-utils";
 import { canonicalizeMessage, formatThinkingForDisplay, hasDisplayableThinking } from "../../utils/thinking-display";
 import { resolveAssistantErrorPresentation } from "../utils/transcript-render-helpers";

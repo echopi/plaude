@@ -368,6 +368,17 @@ export const SETTINGS_SCHEMA = {
 	"auth.broker.url": { type: "string", default: undefined },
 	"auth.broker.token": { type: "string", default: undefined },
 
+	renderStyle: {
+		type: "enum",
+		values: ["claude", "omp"] as const,
+		default: "omp" as const,
+		ui: {
+			tab: "appearance",
+			label: "Render Style",
+			description: "claude: restrained Claude Code-like TUI. omp: full oh-my-pi rendering.",
+		},
+	},
+
 	autoResume: {
 		type: "boolean",
 		default: false,
@@ -604,7 +615,7 @@ export const SETTINGS_SCHEMA = {
 	// Status line
 	"statusLine.preset": {
 		type: "enum",
-		values: ["default", "minimal", "compact", "full", "nerd", "ascii", "custom"] as const,
+		values: ["default", "lite", "minimal", "compact", "full", "nerd", "ascii", "custom"] as const,
 		default: "default",
 		ui: {
 			tab: "appearance",
@@ -613,6 +624,7 @@ export const SETTINGS_SCHEMA = {
 			description: "Pre-built status line configurations",
 			options: [
 				{ value: "default", label: "Default", description: "Model, path, git, context, tokens, cost" },
+				{ value: "lite", label: "Lite", description: "Model, context, and usage" },
 				{ value: "minimal", label: "Minimal", description: "Path and git only" },
 				{ value: "compact", label: "Compact", description: "Model, git, cost, context" },
 				{ value: "full", label: "Full", description: "All segments including time" },

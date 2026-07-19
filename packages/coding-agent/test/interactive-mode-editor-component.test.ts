@@ -2,7 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:
 import * as path from "node:path";
 import { Agent } from "@oh-my-pi/pi-agent-core";
 import { ModelRegistry } from "@oh-my-pi/pi-coding-agent/config/model-registry";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import { CustomEditor } from "@oh-my-pi/pi-coding-agent/modes/components/custom-editor";
 import { InteractiveMode } from "@oh-my-pi/pi-coding-agent/modes/interactive-mode";
 import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
@@ -72,5 +72,23 @@ describe("InteractiveMode.setEditorComponent", () => {
 		expect(mode.editor.onSubmit).toBeDefined();
 		expect(mode.editor.onEscape).toBeDefined();
 		expect(refreshSpy).toHaveBeenCalled();
+	});
+
+	it("uses Claude editor chrome when the render style is Claude", () => {
+		settings.set("renderStyle", "claude");
+		let replacement: TestModalEditor | undefined;
+
+		mode.setEditorComponent((_tui, editorTheme) => {
+			replacement = new TestModalEditor(editorTheme);
+			vi.spyOn(replacement, "setBorderVisible");
+			vi.spyOn(replacement, "setPromptGutter");
+			vi.spyOn(replacement, "setTopBorderProvider");
+			return replacement;
+		});
+
+		expect(replacement).toBeDefined();
+		expect(replacement!.setBorderVisible).toHaveBeenCalledWith(false);
+		expect(replacement!.setPromptGutter).toHaveBeenCalledWith(expect.stringContaining("❯"));
+		expect(replacement!.setTopBorderProvider).toHaveBeenCalledWith(undefined);
 	});
 });

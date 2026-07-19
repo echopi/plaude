@@ -3,7 +3,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { stripVTControlCharacters } from "node:util";
-import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { isClaudeStyle } from "@oh-my-pi/pi-coding-agent/lite/render-policy";
 import { StatusLineComponent, type StatusLineSettings } from "@oh-my-pi/pi-coding-agent/modes/components/status-line";
 import { STATUS_LINE_PRESETS } from "@oh-my-pi/pi-coding-agent/modes/components/status-line/presets";
 import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
@@ -187,32 +188,43 @@ describe("StatusLineComponent effective settings cache", () => {
 	});
 
 	it("renders the main status as a standalone line for Claude statusline style", () => {
-		const previous = process.env.PLAUDE_STATUSLINE_STYLE;
-		process.env.PLAUDE_STATUSLINE_STYLE = "claude";
-		try {
-			const component = makeComponent({
-				preset: "custom",
-				leftSegments: ["model"],
-				rightSegments: [],
-				separator: "none",
-				sessionAccent: false,
-			});
-			component.setHookStatus("hook", "hook running");
+		settings.set("renderStyle", "claude");
+		expect(isClaudeStyle()).toBe(true);
+		const component = makeComponent({
+			preset: "custom",
+			leftSegments: ["model"],
+			rightSegments: [],
+			separator: "none",
+			sessionAccent: false,
+		});
+		component.setHookStatus("hook", "hook running");
 
-			const lines = component.render(80).map(line => stripVTControlCharacters(line));
+		const lines = component.render(80).map(line => stripVTControlCharacters(line));
 
-			expect(lines[0]).toContain("Test Model");
-			expect(lines[0]).toContain("Cache Session");
-			expect(lines[1]).toBe("hook running");
-			expect(component.getEffectiveSettingsForTest().rightSegments).toContain("session_name");
-			expect(component.getEffectiveSettingsForTest().rightSegments).toContain("usage");
-		} finally {
-			if (previous === undefined) {
-				delete process.env.PLAUDE_STATUSLINE_STYLE;
-			} else {
-				process.env.PLAUDE_STATUSLINE_STYLE = previous;
-			}
-		}
+		expect(lines[0]).toBe("hook running");
+		expect(lines[1]).toBe("");
+		expect(lines[2]).toContain("test-model");
+		expect(lines[2]).toContain("Cache Session");
+		expect(component.getEffectiveSettingsForTest().rightSegments).toContain("session_name");
+		expect(component.getEffectiveSettingsForTest().rightSegments).toContain("usage");
+		settings.set("renderStyle", "omp");
+	});
+
+	it("forces the Claude lite preset when the persisted status line is custom", () => {
+		settings.set("renderStyle", "claude");
+
+		const component = makeComponent({
+			preset: "custom",
+			leftSegments: ["path"],
+			rightSegments: [],
+		});
+
+		const effective = component.getEffectiveSettingsForTest();
+		expect(effective.leftSegments).toEqual(["model", "context_pct"]);
+		expect(effective.rightSegments).toEqual(["usage", "session_name"]);
+		expect(effective.separator).toBe("pipe");
+
+		settings.set("renderStyle", "omp");
 	});
 
 	it("does not mutate shared preset segment options during narrow renders", () => {

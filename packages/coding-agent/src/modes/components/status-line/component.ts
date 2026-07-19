@@ -5,6 +5,7 @@ import type { AssistantMessage, UsageLimit, UsageReport } from "@oh-my-pi/pi-ai"
 import { type Component, truncateToWidth, visibleWidth } from "@oh-my-pi/pi-tui";
 import { getProjectDir } from "@oh-my-pi/pi-utils";
 import { settings } from "../../../config/settings";
+import { isClaudeStyle, isLiteRender, useClaudeStatusLine } from "../../../lite/render-policy";
 import type { AgentSession } from "../../../session/agent-session";
 import type { OAuthAccountIdentity } from "../../../session/auth-storage";
 import { limitMatchesActiveAccount } from "../../../slash-commands/helpers/active-oauth-account";
@@ -1092,7 +1093,7 @@ export class StatusLineComponent implements Component {
 	}
 
 	#computeEffectiveSettings(): EffectiveStatusLineSettings {
-		const preset = this.#settings.preset ?? "default";
+		const preset = isLiteRender() ? "lite" : (this.#settings.preset ?? "default");
 		const presetDef = getPreset(preset);
 		const useCustomSegments = preset === "custom";
 		const mergedSegmentOptions: StatusLineSettings["segmentOptions"] = {};
@@ -1134,6 +1135,7 @@ export class StatusLineComponent implements Component {
 			rightSegments,
 			separator: this.#settings.separator ?? presetDef.separator,
 			segmentOptions: mergedSegmentOptions,
+			compactThinkingLevel: this.#settings.compactThinkingLevel ?? preset === "lite",
 		};
 	}
 
@@ -1163,6 +1165,22 @@ export class StatusLineComponent implements Component {
 			includeGit,
 			includePr,
 		);
+
+		// Claude style: plain text below the prompt, dot separators, no background.
+		if (isClaudeStyle()) {
+			const allSegments = [...effectiveSettings.leftSegments, ...effectiveSettings.rightSegments];
+			const parts: string[] = [];
+			for (const segId of allSegments) {
+				const rendered = renderSegment(segId, ctx);
+				if (rendered.visible && rendered.content) {
+					parts.push(rendered.content);
+				}
+			}
+			if (parts.length === 0) return "";
+			const sep = theme.fg("dim", " · ");
+			return truncateToWidth(`  ${parts.join(sep)}`, width);
+		}
+
 		const separatorDef = getSeparator(effectiveSettings.separator ?? "powerline-thin", theme);
 
 		// `transparent` reuses the empty-string sentinel (`\x1b[49m`) so the bar
@@ -1340,14 +1358,30 @@ export class StatusLineComponent implements Component {
 	}
 
 	render(width: number): readonly string[] {
-		// Only render hook statuses - main status is in editor's top border
+		const lines: string[] = [];
+
+		// Hook statuses sit above the status bar so the bar stays adjacent
+		// to the prompt, giving the bottom of the screen a stable anchor.
 		const showHooks = this.#settings.showHookStatus ?? true;
-		if (!showHooks || this.#hookStatuses.size === 0) {
-			return [];
+		if (showHooks && this.#hookStatuses.size > 0) {
+			lines.push(
+				...Array.from(this.#hookStatuses.entries())
+					.sort(([a], [b]) => a.localeCompare(b))
+					.map(([, text]) => truncateToWidth(sanitizeStatusText(text), width)),
+			);
 		}
 
-		return Array.from(this.#hookStatuses.entries())
-			.sort(([a], [b]) => a.localeCompare(b))
-			.map(([, text]) => truncateToWidth(sanitizeStatusText(text), width));
+		if (isClaudeStyle()) {
+			const mainLine = this.#buildStatusLine(width);
+			if (mainLine) {
+				if (lines.length > 0) {
+					// Blank line separates hook statuses from the status bar.
+					lines.push("");
+				}
+				lines.push(truncateToWidth(mainLine, width));
+			}
+		}
+
+		return lines;
 	}
 }

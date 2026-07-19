@@ -1158,6 +1158,14 @@ export class Settings {
 			delete raw.queueMode;
 		}
 
+		// liteMode (boolean) -> renderStyle (enum)
+		if ("liteMode" in raw) {
+			if (!("renderStyle" in raw)) {
+				raw.renderStyle = raw.liteMode ? "claude" : "omp";
+			}
+			delete raw.liteMode;
+		}
+
 		// lastChangelogVersion moved out of config.yml into the
 		// <agentDir>/last-changelog-version marker file so version bumps no
 		// longer dirty user-tracked configs. Capture for marker seeding (see
