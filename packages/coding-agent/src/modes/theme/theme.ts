@@ -615,7 +615,7 @@ const NERD_SYMBOLS: SymbolMap = {
 	// pick:  | alt:  
 	"icon.host": "\uf109",
 	// pick:  | alt:  
-	"icon.session": "\uf550",
+	"icon.session": "\u{f0051}",
 	// pick:  | alt: 
 	"icon.package": "\uf487",
 	// pick:  | alt:  
@@ -747,6 +747,7 @@ const NERD_SYMBOLS: SymbolMap = {
 	"tool.debug": "\uEAD8",
 	"tool.mcp": "\uEB2D",
 	"tool.job": "\uEBA2",
+	"tool.launch": "\uf135",
 	"tool.task": "\uf4a0",
 	"tool.todo": "\uEAB3",
 	"tool.memory": "\uEACE",
