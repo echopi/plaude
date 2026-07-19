@@ -4,17 +4,18 @@
  *
  * A long interactive session finalizes assistant blocks and emits their rows
  * into native terminal scrollback. Once committed, those rows are immutable
- * history the terminal owns; the local {@link TranscriptContainer} should drop
- * them from its frame so a live tail mutation does not re-walk sealed history.
+ * history the terminal owns; the local {@link TranscriptContainer} still keeps
+ * the render snapshot so post-finalize mutations remain visible without a
+ * destructive replay.
  *
  * This bench builds N finalized assistant blocks (prose + closed code fences),
  * commits every finalized row into native scrollback, then times one pure
  * `TranscriptContainer.render(width)` per streaming tick of a single live tail
- * block. Depth-linear cost (ms rising with N) means sealed history is still
- * walked and re-assembled each tick; flat cost means the committed prefix was
- * compacted and only the live tail composes.
+ * block. This is a receipt for the current version-tracked incremental assembly
+ * path. The ratio is diagnostic because the path still compares every block;
+ * the hard guard is an absolute p95 budget for the 5,000-block long-session case.
  *
- * Target after the fix: ratio(N5000/N500) <= 1.3, N5000 p95 < 10 ms.
+ * Guard: N5000 p95 < 10 ms. Keep the ratio in the receipt for trend review.
  */
 
 import type { AssistantMessage } from "@oh-my-pi/pi-ai";
@@ -27,6 +28,7 @@ const WIDTH = 100;
 const SIZES = [500, 5000];
 const WARMUP = 20;
 const SAMPLES = 200;
+const MAX_LARGE_SESSION_P95_MS = 10;
 
 function makeMarkdownCorpus(targetGraphemes: number): string {
 	const para =
@@ -127,5 +129,12 @@ const large = results[results.length - 1]!;
 const ratio = large.median / small.median;
 console.log(
 	`\n  ratio(N${SIZES[SIZES.length - 1]}/N${SIZES[0]}) median = ${ratio.toFixed(3)}  ` +
-		`(target <= 1.3; N${SIZES[SIZES.length - 1]} p95 = ${large.p95.toFixed(4)}ms, target < 10ms)\n`,
+		`(diagnostic only; N${SIZES[SIZES.length - 1]} p95 = ${large.p95.toFixed(4)}ms, guard < ${MAX_LARGE_SESSION_P95_MS}ms)\n`,
 );
+
+if (!Number.isFinite(large.p95) || large.p95 >= MAX_LARGE_SESSION_P95_MS) {
+	throw new Error(
+		`Transcript compose performance guard failed: N${SIZES[SIZES.length - 1]} p95=${large.p95.toFixed(4)}ms ` +
+			`(limit < ${MAX_LARGE_SESSION_P95_MS}ms)`,
+	);
+}

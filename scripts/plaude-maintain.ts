@@ -69,9 +69,31 @@ const FORK_REGRESSION_COMMAND = [
 	"test",
 	"packages/ai/test/openai-codex-stream.test.ts",
 	"packages/coding-agent/test/sdk-mcp-notification-uri.test.ts",
+	"packages/coding-agent/test/lite-cli-surface.test.ts",
 	"packages/coding-agent/test/lite-render-policy.test.ts",
 	"packages/coding-agent/test/lite-theme-filter.test.ts",
 ];
+
+export const FORK_PROTECTED_PATHS = [
+	".agents/skills/plaude-maintainer/SKILL.md",
+	".agents/skills/plaude-maintainer/agents/openai.yaml",
+	"scripts/plaude-maintain.ts",
+	"scripts/plaude-maintain.test.ts",
+	"scripts/plaude-sync-upstream.sh",
+	"scripts/prepare-maintenance-native.ts",
+	"packages/coding-agent/src/commands/launch.ts",
+	"packages/coding-agent/src/config/lite-defaults.json",
+	"packages/coding-agent/src/lite/lite-settings-filter.ts",
+	"packages/coding-agent/src/lite/lite-status-preset.ts",
+	"packages/coding-agent/src/lite/render-policy.ts",
+	"packages/coding-agent/src/modes/components/settings-selector.ts",
+	"packages/coding-agent/src/modes/components/theme-selector.ts",
+	"packages/coding-agent/test/lite-cli-surface.test.ts",
+	"packages/coding-agent/test/lite-render-policy.test.ts",
+	"packages/coding-agent/test/lite-theme-filter.test.ts",
+] as const;
+
+const FORK_PROTECTED_PATH_SET = new Set<string>(FORK_PROTECTED_PATHS);
 
 function asRecord(value: unknown): Record<string, unknown> {
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -110,6 +132,8 @@ export function buildVerificationCommands(changedPaths: string[]): string[][] {
 		["bun", "install", "--frozen-lockfile"],
 		["bun", "check"],
 		["bun", "scripts/prepare-maintenance-native.ts"],
+		["bun", "packages/coding-agent/src/cli.ts", "--version"],
+		["bun", "packages/coding-agent/bench/transcript-compose.bench.ts"],
 		FORK_REGRESSION_COMMAND,
 	];
 	const forkRegressions = new Set(FORK_REGRESSION_COMMAND.slice(2));
@@ -119,6 +143,17 @@ export function buildVerificationCommands(changedPaths: string[]): string[][] {
 		.sort();
 	if (changedTests.length > 0) commands.push(["bun", "test", ...changedTests]);
 	return commands;
+}
+
+export function findProtectedDeletions(deletedPaths: Iterable<string>): string[] {
+	return [...new Set(deletedPaths)].filter(path => FORK_PROTECTED_PATH_SET.has(path)).sort();
+}
+
+export function assertRemoteHead(remoteOutput: string, expectedSha: string): void {
+	const actualSha = remoteOutput.trim().split(/\s+/, 1)[0] ?? "";
+	if (actualSha !== expectedSha) {
+		throw new Error(`Remote branch verification failed: expected ${expectedSha}, got ${actualSha || "<missing>"}`);
+	}
 }
 
 export function assertSubmittable(
@@ -395,9 +430,23 @@ async function verifyActive(options: CliOptions): Promise<void> {
 		const changedPaths = (await git(active.worktree, ["diff", "--name-only", `${active.baseSha}..HEAD`]))
 			.split("\n")
 			.filter(Boolean);
+		const deletedPaths = (
+			await git(active.worktree, ["diff", "--name-only", "--diff-filter=D", `${active.baseSha}..HEAD`])
+		)
+			.split("\n")
+			.filter(Boolean);
 		const receiptDir = await createReceipt(options.stateDir, "verify");
 		const commandLog = path.join(receiptDir, "commands.log");
 		try {
+			const protectedDeletions = findProtectedDeletions(deletedPaths);
+			if (protectedDeletions.length > 0) {
+				throw new Error(
+					[
+						"Protected fork files were deleted; confirm the deletion is intentional before verification:",
+						...protectedDeletions.map(deletedPath => `- ${deletedPath}`),
+					].join("\n"),
+				);
+			}
 			for (const command of buildVerificationCommands(changedPaths)) {
 				await runCommand(command, active.worktree, commandLog);
 			}
@@ -430,6 +479,12 @@ async function submitActive(options: CliOptions): Promise<void> {
 			["push", options.forkRemote, `HEAD:refs/heads/${options.workBranch}`],
 			commandLog,
 		);
+		const remoteHead = await git(
+			options.repoPath,
+			["ls-remote", options.forkRemote, `refs/heads/${options.workBranch}`],
+			commandLog,
+		);
+		assertRemoteHead(remoteHead, headSha);
 		const currentBranch = await git(options.repoPath, ["branch", "--show-current"], commandLog);
 		const localClean = (await git(options.repoPath, ["status", "--porcelain"], commandLog)) === "";
 		const localUpdated = currentBranch === options.workBranch && localClean;

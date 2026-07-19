@@ -3,9 +3,11 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+	assertRemoteHead,
 	assertSubmittable,
 	buildVerificationCommands,
 	classifyRelease,
+	findProtectedDeletions,
 	type MaintainerState,
 	parseGitHubRelease,
 	redactSecrets,
@@ -81,7 +83,9 @@ describe("buildVerificationCommands", () => {
 			"bun install --frozen-lockfile",
 			"bun check",
 			"bun scripts/prepare-maintenance-native.ts",
-			"bun test packages/ai/test/openai-codex-stream.test.ts packages/coding-agent/test/sdk-mcp-notification-uri.test.ts packages/coding-agent/test/lite-render-policy.test.ts packages/coding-agent/test/lite-theme-filter.test.ts",
+			"bun packages/coding-agent/src/cli.ts --version",
+			"bun packages/coding-agent/bench/transcript-compose.bench.ts",
+			"bun test packages/ai/test/openai-codex-stream.test.ts packages/coding-agent/test/sdk-mcp-notification-uri.test.ts packages/coding-agent/test/lite-cli-surface.test.ts packages/coding-agent/test/lite-render-policy.test.ts packages/coding-agent/test/lite-theme-filter.test.ts",
 			"bun test packages/catalog/test/codex-discovery.test.ts packages/tui/test/markdown.test.ts",
 		]);
 	});
@@ -93,6 +97,35 @@ describe("buildVerificationCommands", () => {
 			"packages/coding-agent/test/oauth-flow.test.ts",
 		]);
 		expect(commands.at(-1)?.join(" ")).toBe("bun test packages/coding-agent/test/oauth-flow.test.ts");
+	});
+});
+
+describe("findProtectedDeletions", () => {
+	it("flags deleted fork-owned surfaces and ignores upstream-only files", () => {
+		expect(
+			findProtectedDeletions([
+				"packages/coding-agent/src/config/lite-defaults.json",
+				"packages/coding-agent/test/lite-cli-surface.test.ts",
+				"packages/ai/src/upstream-only.ts",
+				"packages/coding-agent/test/lite-cli-surface.test.ts",
+			]),
+		).toEqual([
+			"packages/coding-agent/src/config/lite-defaults.json",
+			"packages/coding-agent/test/lite-cli-surface.test.ts",
+		]);
+	});
+});
+
+describe("assertRemoteHead", () => {
+	it("accepts the exact branch head returned by ls-remote", () => {
+		expect(() => assertRemoteHead("abc123\trefs/heads/auto/upstream-sync\n", "abc123")).not.toThrow();
+	});
+
+	it("rejects an empty or different remote head", () => {
+		expect(() => assertRemoteHead("", "abc123")).toThrow("Remote branch verification failed");
+		expect(() => assertRemoteHead("def456\trefs/heads/auto/upstream-sync\n", "abc123")).toThrow(
+			"expected abc123, got def456",
+		);
 	});
 });
 

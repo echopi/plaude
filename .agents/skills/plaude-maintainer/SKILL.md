@@ -45,7 +45,7 @@ Use `scripts/plaude-maintain.ts` for deterministic state changes. Keep conflict 
    bun scripts/plaude-maintain.ts verify --json
    ```
 
-   Verification always runs dependency lock validation, repository checks, Plaude fork regressions, and every test file changed by the release. Package-wide suites are diagnostic signals: run them when investigating risk, but compare pre-existing failures against the base instead of making an unhealthy baseline a hard submit gate.
+   Verification always runs dependency lock validation, repository checks, a CLI version smoke, the transcript-compose long-session performance guard, Plaude fork regressions (including the lite CLI surface), and every test file changed by the release. It also fails closed when a protected fork surface is deleted; inspect whether the deletion is intentional before changing the maintenance range. Package-wide suites are diagnostic signals: run them when investigating risk, but compare pre-existing failures against the base instead of making an unhealthy baseline a hard submit gate.
 
 6. On failure, read the full `commands.log` in the reported receipt. Establish one root-cause hypothesis. Use the repository `bugfix` workflow for a product regression, commit the minimal fix in the maintenance worktree, then rerun `verify`. Never manually edit state to mark a run green.
 
@@ -57,6 +57,8 @@ Use `scripts/plaude-maintain.ts` for deterministic state changes. Keep conflict 
    bun scripts/plaude-maintain.ts submit --json
    bun scripts/plaude-maintain.ts cleanup --json
    ```
+
+   `submit` verifies the remote branch with `git ls-remote` and refuses to mark the sync submitted unless it points at the exact verified SHA.
 
 ## Release subscription
 
